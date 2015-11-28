@@ -3,7 +3,7 @@
  *
  *  Copyright 2015 Bruce Ravenel
  *
- *  Version 1.2.3a  25 Nov 2015
+ *  Version 1.2.5   27 Nov 2015
  *
  *  Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
  *  in compliance with the License. You may obtain a copy of the License at:
@@ -53,7 +53,8 @@ def selectRule() {
 			input "modesZ", "mode", title: "Evaluate only when mode is", multiple: true, required: false
 			paragraph "Advanced Rule Input allows for parenthesized sub-rules."
 			input "advanced", "bool", title: "Advanced Rule Input", required: false
-            input "disabled", "capability.switch", title: "Switch to disable rule when ON", required: false, multiple: false
+			input "disabled", "capability.switch", title: "Switch to disable rule when ON", required: false, multiple: false
+			input "logging", "bool", title: "Enable event and rule logging", required: false, defaultValue: false
    		}    
 	}
 }
@@ -75,7 +76,7 @@ def selectConditions() {
 						def xCapab = myCapab.value // removed , "Certain Time"
 						if(!(xCapab in ["Time of day", "Days of week", "Mode"])) {
 							def thisDev = "rDev$i"
-							getDevs(xCapab, thisDev)
+							getDevs(xCapab, thisDev, true)
 							def myDev = settings.find {it.key == thisDev}
 							if(myDev) if(myDev.value.size() > 1) getAnyAll(thisDev)
 							if(xCapab in ["Temperature", "Humidity", "Illuminance", "Dimmer level", "Energy meter", "Power meter", "Battery"]) getRelational(thisDev)
@@ -88,7 +89,7 @@ def selectConditions() {
 	}
 }
 
-def getDevs(myCapab, dev) {
+def getDevs(myCapab, dev, multi) {
     def thisName = ""
     def thisCapab = ""
 	switch(myCapab) {
@@ -117,27 +118,27 @@ def getDevs(myCapab, dev) {
 			thisCapab = "lock"
 			break
 		case "Dimmer level":
-			thisName = "Dimmers"
+			thisName = "Dimmer" + (multi ? "s" : "")
 			thisCapab = "switchLevel"
 			break
 		case "Temperature":
-			thisName = "Temperature sensors"
+			thisName = "Temperature sensor" + (multi ? "s" : "")
 			thisCapab = "temperatureMeasurement"
 			break
 		case "Humidity":
-			thisName = "Humidity sensors"
+			thisName = "Humidity sensor" + (multi ? "s" : "")
 			thisCapab = "relativeHumidityMeasurement"
 			break
 		case "Illuminance":
-			thisName = "Illuminance sensors"
+			thisName = "Illuminance sensor" + (multi ? "s" : "")
 			thisCapab = "illuminanceMeasurement"
 			break
 		case "Energy meter":
-			thisName = "Energy meters"
+			thisName = "Energy meter" + (multi ? "s" : "")
 			thisCapab = "energyMeter"
 			break
 		case "Power meter":
-			thisName = "Power meters"
+			thisName = "Power meter" + (multi ? "s" : "")
 			thisCapab = "powerMeter"
 			break
 		case "Water sensor":
@@ -145,10 +146,10 @@ def getDevs(myCapab, dev) {
 			thisCapab = "waterSensor"
 			break
 		case "Battery":
-			thisName = "Batteries"
+			thisName = multi ? "Batteries" : "Battery"
 			thisCapab = "battery"
 	}
-	def result = input dev, "capability.$thisCapab", title: thisName, required: true, multiple: true, submitOnChange: true
+	def result = input dev, "capability.$thisCapab", title: thisName, required: true, multiple: multi, submitOnChange: true
 }
 
 def getAnyAll(myDev) {
@@ -173,16 +174,20 @@ def getState(myCapab, n) {
 	else if(myCapab == "Acceleration")	result = input "state$n", "enum", title: "Acceleration state", options: ["active", "inactive"]
 	else if(myCapab == "Contact") 		result = input "state$n", "enum", title: "Contact state", options: ["open", "closed"]
 	else if(myCapab == "Presence") 		result = input "state$n", "enum", title: "Presence state", options: ["present", "not present"], defaultValue: "present"
-	else if(myCapab == "Lock")			result = input "state$n", "enum", title: "Lock state", options: ["locked", "unlocked"]
+	else if(myCapab == "Lock")		result = input "state$n", "enum", title: "Lock state", options: ["locked", "unlocked"]
 	else if(myCapab == "Water sensor")	result = input "state$n", "enum", title: "Water state", options: ["dry", "wet"]
 	else if(myCapab == "Dimmer level")	result = input "state$n", "number", title: "Dimmer level", range: "0..100"
-	else if(myCapab == "Temperature") 	result = input "state$n", "decimal", title: "Temperature", range: "*..*"
-	else if(myCapab == "Humidity") 		result = input "state$n", "number", title: "Humidity", range: "0..100"
-	else if(myCapab == "Illuminance") 	result = input "state$n", "number", title: "Illuminance"
-	else if(myCapab == "Energy meter") 	result = input "state$n", "number", title: "Energy level"
-	else if(myCapab == "Power meter") 	result = input "state$n", "number", title: "Power level", range: "*..*"
-	else if(myCapab == "Battery") 		result = input "state$n", "number", title: "Battery level"
-	else if(myCapab == "Days of week") 	result = input "days", "enum", title: "On certain days of the week", multiple: true, required: false, options: days
+	else if(myCapab in ["Temperature", "Humidity", "Illuminance", "Energy meter", "Power meter", "Battery"]) {
+    	input "isDev$n", "bool", title: "Relative to another device?", multiple: false, required: false, submitOnChange: true, defaultValue: false
+        def myDev = settings.find {it.key == "isDev$n"}
+        if(myDev && myDev.value) getDevs(myCapab, "relDevice$n", false)
+		else if(myCapab == "Temperature") 		result = input "state$n", "decimal", title: "Temperature becomes ", range: "*..*"
+		else if(myCapab == "Humidity") 			result = input "state$n", "number", title: "Humidity becomes", range: "0..100"
+		else if(myCapab == "Illuminance") 		result = input "state$n", "number", title: "Illuminance becomes"
+		else if(myCapab == "Energy meter") 		result = input "state$n", "number", title: "Energy level becomes"
+		else if(myCapab == "Power meter") 		result = input "state$n", "number", title: "Power level becomes", range: "*..*"
+		else if(myCapab == "Battery") 			result = input "state$n", "number", title: "Battery level becomes"
+	} else if(myCapab == "Days of week") 	result = input "days", "enum", title: "On certain days of the week", multiple: true, required: false, options: days
 	else if(myCapab == "Mode") {
 		def myModes = []
 		location.modes.each {myModes << "$it"}
@@ -253,7 +258,9 @@ def conditionLabelN(i) {
 		def thisRel = settings.find {it.key == "RelrDev$i"}
 		if(thisCapab.value in ["Temperature", "Humidity", "Illuminance", "Dimmer level", "Energy meter", "Power meter", "Battery"]) result = result + " " + thisRel.value + " "
 		def thisState = settings.find {it.key == "state$i"}
-		result = result + thisState.value
+		def thisRelDev = settings.find {it.key == "relDevice$i"}
+		if(thisRelDev) result = result + thisRelDev.value
+		else result = result + thisState.value
         }
 	return result
 }
@@ -436,7 +443,9 @@ def selectActionsTrue() {
 				if(thermoFanTrue) buildActTrue("Fan setting $thermoFanTrue", false)
 				addToActTrue("")
 			}
-			input "modeTrue", "mode", title: "Set the mode", multiple: false, required: false, submitOnChange: true
+			def myModes = []
+			location.modes.each {myModes << "$it"}
+			input "modeTrue", "enum", title: "Set the mode", multiple: false, required: false, options: myModes.sort(), submitOnChange: true
 			if(modeTrue) addToActTrue("Mode: $modeTrue")
 			def phrases = location.helloHome?.getPhrases()*.label
 			input "myPhraseTrue", "enum", title: "Routine to run", required: false, options: phrases.sort(), submitOnChange: true
@@ -518,7 +527,9 @@ def selectActionsFalse() {
 				if(thermoFanFalse) buildActFalse("Fan setting $thermoFanFalse", false)
 				addToActFalse("")
 			}
-			input "modeFalse", "mode", title: "Set the mode", multiple: false, required: false, submitOnChange: true
+			def myModes = []
+			location.modes.each {myModes << "$it"}
+			input "modeFalse", "enum", title: "Set the mode", multiple: false, required: false, options: myModes.sort(), submitOnChange: true
 			if(modeFalse) addToActFalse("Mode: $modeFalse")
 			def phrases = location.helloHome?.getPhrases()*.label
 			input "myPhraseFalse", "enum", title: "Routine to run", required: false, options: phrases.sort(), submitOnChange: true
@@ -591,14 +602,50 @@ def initialize() {
 	def howMany = state.howMany - 1
 	for (int i = 1; i <= howMany; i++) {
 		def capab = (settings.find {it.key == "rCapab$i"}).value
-		if     (capab == "Mode") subscribe(location, "mode", allHandler)
-		else if(capab == "Time of day") scheduleTimeOfDay()
-		else if(capab == "Days of week") schedule("2015-01-09T00:00:10.000-0700", "runRule")
-		else if(capab == "Dimmer level") subscribe((settings.find{it.key == "rDev$i"}).value, "level", allHandler)
-		else if(capab == "Energy meter") subscribe((settings.find{it.key == "rDev$i"}).value, "energy", allHandler)
-		else if(capab == "Power meter") subscribe((settings.find{it.key == "rDev$i"}).value, "power", allHandler)
-		else if(capab == "Water sensor") subscribe((settings.find{it.key == "rDev$i"}).value, "water", allHandler)
-		else subscribe((settings.find{it.key == "rDev$i"}).value, capab.toLowerCase(), allHandler)
+        def myRelDev = settings.find {it.key == "relDevice$i"}
+		switch(capab) {
+			case "Mode": 
+				subscribe(location, "mode", allHandler)
+				break
+			case "Time of day":
+				scheduleTimeOfDay()
+				break
+			case "Days of week":
+				schedule("2015-01-09T00:00:10.000-0700", "runRule")
+				break
+			case "Dimmer level":
+				subscribe((settings.find{it.key == "rDev$i"}).value, "level", allHandler)
+				break
+			case "Energy meter":
+				subscribe((settings.find{it.key == "rDev$i"}).value, "energy", allHandler)
+				if(myRelDev) subscribe(myRelDev.value, "energy", allHandler)
+				break
+			case "Power meter":
+				subscribe((settings.find{it.key == "rDev$i"}).value, "power", allHandler)
+				if(myRelDev) subscribe(myRelDev.value, "power", allHandler)
+				break
+			case "Temperature":
+				subscribe((settings.find{it.key == "rDev$i"}).value, "temperature", allHandler)
+				if(myRelDev) subscribe(myRelDev.value, "temperature", allHandler)
+				break
+			case "Humidity":
+				subscribe((settings.find{it.key == "rDev$i"}).value, "humidity", allHandler)
+				if(myRelDev) subscribe(myRelDev.value, "humidity", allHandler)
+				break
+			case "Battery":
+				subscribe((settings.find{it.key == "rDev$i"}).value, "battery", allHandler)
+				if(myRelDev) subscribe(myRelDev.value, "battery", allHandler)
+				break
+			case "Illuminance":
+				subscribe((settings.find{it.key == "rDev$i"}).value, "illuminance", allHandler)
+				if(myRelDev) subscribe(myRelDev.value, "illuminance", allHandler)
+				break
+			case "Water sensor":
+				subscribe((settings.find{it.key == "rDev$i"}).value, "water", allHandler)
+				break
+			default:
+				subscribe((settings.find{it.key == "rDev$i"}).value, capab.toLowerCase(), allHandler)
+		}
 	}
 	state.success = null
 	subscribe(disabled, "switch", disabledHandler)
@@ -609,26 +656,26 @@ def initialize() {
 
 // Main rule evaluation code follows
 
-def compare(a, rel, b) {
+def compare(a, rel, b, relDev) {
 	def result = true
-	if     (rel == "=") 	result = a == b
-	else if(rel == "!=") 	result = a != b
-	else if(rel == ">") 	result = a > b
-	else if(rel == "<") 	result = a < b
-	else if(rel == ">=") 	result = a >= b
-	else if(rel == "<=") 	result = a <= b
+	if     (rel == "=") 	result = a == (relDev ?: b)
+	else if(rel == "!=") 	result = a != (relDev ?: b)
+	else if(rel == ">") 	result = a >  (relDev ?: b)
+	else if(rel == "<") 	result = a <  (relDev ?: b)
+	else if(rel == ">=") 	result = a >= (relDev ?: b)
+	else if(rel == "<=") 	result = a <= (relDev ?: b)
 	return result
 }
 
-def checkCondAny(dev, state, cap, rel) {
+def checkCondAny(dev, state, cap, rel, relDev) {
 	def result = false
-	if     (cap == "Temperature") 	dev.currentTemperature.each 	{result = result || compare(it, rel, state)}
-	else if(cap == "Humidity")	dev.currentHumidity.each    	{result = result || compare(it, rel, state)}
-	else if(cap == "Illuminance") 	dev.currentIlluminance.each 	{result = result || compare(it, rel, state)}
-	else if(cap == "Dimmer level")	dev.currentLevel.each		{result = result || compare(it, rel, state)}
-	else if(cap == "Energy meter")	dev.currentEnergy.each		{result = result || compare(it, rel, state)}
-	else if(cap == "Power meter")	dev.currentPower.each		{result = result || compare(it, rel, state)}
-	else if(cap == "Battery")	dev.currentBattery.each		{result = result || compare(it, rel, state)}
+	if     (cap == "Temperature") 	dev.currentTemperature.each 	{result = result || compare(it, rel, state, reldev ? relDev.currentTemperature : null)}
+	else if(cap == "Humidity")	dev.currentHumidity.each    	{result = result || compare(it, rel, state, reldev ? relDev.currentHumidity : null)}
+	else if(cap == "Illuminance") 	dev.currentIlluminance.each 	{result = result || compare(it, rel, state, reldev ? relDev.currentIlluminance : null)}
+	else if(cap == "Dimmer level")	dev.currentLevel.each		{result = result || compare(it, rel, state, relDev ? relDev.currentLevel : null)}
+	else if(cap == "Energy meter")	dev.currentEnergy.each		{result = result || compare(it, rel, state, relDev ? relDev.currentEnergy : null)}
+	else if(cap == "Power meter")	dev.currentPower.each		{result = result || compare(it, rel, state, relDev ? relDev.currentPower : null)}
+	else if(cap == "Battery")	dev.currentBattery.each		{result = result || compare(it, rel, state, relDev ? relDev.currentBattery : null)}
 	else if(cap == "Water sensor")	result = state in dev.currentWater
 	else if(cap == "Switch") 	result = state in dev.currentSwitch
 	else if(cap == "Motion") 	result = state in dev.currentMotion
@@ -640,7 +687,8 @@ def checkCondAny(dev, state, cap, rel) {
 	return result
 }
 
-def checkCondAll(dev, state, cap, rel) {
+
+def checkCondAll(dev, state, cap, rel, relDev) {
 	def flip = ["on": "off",
 		"off": "on",
                 "active": "inactive",
@@ -654,13 +702,13 @@ def checkCondAll(dev, state, cap, rel) {
                 "locked": "unlocked",
                 "unlocked": "locked"]
 	def result = true
-	if     (cap == "Temperature") 		dev.currentTemperature.each 	{result = result && compare(it, rel, state)}
-	else if(cap == "Humidity") 		dev.currentHumidity.each    	{result = result && compare(it, rel, state)}
-	else if(cap == "Illuminance") 		dev.currentIlluminance.each 	{result = result && compare(it, rel, state)}
-	else if(cap == "Dimmer level")		dev.currentLevel.each		{result = result && compare(it, rel, state)}
-	else if(cap == "Energy meter")		dev.currentEnergy.each		{result = result && compare(it, rel, state)}
-	else if(cap == "Power meter")		dev.currentPower.each		{result = result && compare(it, rel, state)}
-	else if(cap == "Battery")		dev.currentBattery.each		{result = result && compare(it, rel, state)}
+	if     (cap == "Temperature") 		dev.currentTemperature.each 	{result = result && compare(it, rel, state, reldev ? relDev.currentTemperature : null)}
+	else if(cap == "Humidity") 		dev.currentHumidity.each    	{result = result && compare(it, rel, state, reldev ? relDev.currentHumidity : null)}
+	else if(cap == "Illuminance") 		dev.currentIlluminance.each 	{result = result && compare(it, rel, state, reldev ? relDev.currentIlluminance : null)}
+	else if(cap == "Dimmer level")		dev.currentLevel.each		{result = result && compare(it, rel, state, reldev ? relDev.currentLevel : null)}
+	else if(cap == "Energy meter")		dev.currentEnergy.each		{result = result && compare(it, rel, state, reldev ? relDev.currentEnergy : null)}
+	else if(cap == "Power meter")		dev.currentPower.each		{result = result && compare(it, rel, state, reldev ? relDev.currentPower : null)}
+	else if(cap == "Battery")		dev.currentBattery.each		{result = result && compare(it, rel, state, reldev ? relDev.currentBattery : null)}
 	else if(cap == "Water sensor")		result = !(flip[state] in dev.currentSwitch)
 	else if(cap == "Switch") 		result = !(flip[state] in dev.currentSwitch)
 	else if(cap == "Motion") 		result = !(flip[state] in dev.currentMotion)
@@ -671,6 +719,7 @@ def checkCondAll(dev, state, cap, rel) {
 //	log.debug "CheckAll $cap $result"
 	return result
 }
+
 
 def getOperand(i) {
 	def result = true
@@ -683,10 +732,11 @@ def getOperand(i) {
 		def myState = 	settings.find {it.key == "state$i"}
 		def myRel = 	settings.find {it.key == "RelrDev$i"}
 		def myAll = 	settings.find {it.key == "AllrDev$i"}
+		def myRelDev =  settings.find {it.key == "relDevice$i"}
 		if(myAll) {
-			if(myAll.value) result = checkCondAll(myDev.value, myState.value, capab, myRel ? myRel.value : 0)
-			else result = checkCondAny(myDev.value, myState.value, capab, myRel ? myRel.value : 0)
-		} else result = checkCondAny(myDev.value, myState.value, capab, myRel ? myRel.value : 0)
+			if(myAll.value) result = checkCondAll(myDev.value, myState ? myState.value : null, capab, myRel ? myRel.value : 0, myRelDev ? myRelDev.value : null)
+			else result = checkCondAny(myDev.value, myState ? myState.value : null, capab, myRel ? myRel.value : 0, myRelDev ? myRelDev.value : null)
+		} else result = checkCondAny(myDev.value, myState ? myState.value : null, capab, myRel ? myRel.value : 0, myRelDev ? myRelDev.value : null)
 	}
 //    log.debug "operand is $result"
 	return result
@@ -769,8 +819,8 @@ def runRule(delay) {
 	def success = eval()
 	if((success != state.success) || delay) {
 		unschedule(delayRuleTrue)
-        unschedule(delayRuleFalse)
-		if     (delayTrue > 0 && !delay && success)		doDelayTrue(delayTrue)
+		unschedule(delayRuleFalse)
+		if     (delayTrue > 0 && !delay && success)	doDelayTrue(delayTrue)
 		else if(delayFalse > 0 && !delay && !success)	doDelayFalse(delayFalse)
 		else {
         	if(success) {
@@ -816,14 +866,14 @@ def runRule(delay) {
 				if(pushFalse)		sendPush(msgFalse ?: "Rule $app.label False")
 				if(phoneFalse)		sendSms(phoneFalse, msgFalse ?: "Rule $app.label False")
 			}
-		state.success = success
-		log.info (success ? "$app.label is True" : "$app.label is False")
-        }
+			state.success = success
+			if(logging) log.info (success ? "$app.label is True" : "$app.label is False")
+		}
 	}
 }
 
 def allHandler(evt) {
-	log.info "$app.label: $evt.displayName $evt.name $evt.value"
+	if(logging) log.info "$app.label: $evt.displayName $evt.name $evt.value"
 	runRule(false)
 }
 
