@@ -3,7 +3,7 @@
  *
  *  Copyright 2015 Bruce Ravenel
  *
- *  Version 1.2.6   28 Nov 2015
+ *  Version 1.2.10   30 Nov 2015
  *
  *  Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
  *  in compliance with the License. You may obtain a copy of the License at:
@@ -62,7 +62,7 @@ def selectRule() {
 
 def selectConditions() {
     def ct = settings.findAll{it.key.startsWith("rCapab")}
-    state.howMany = ct.size() + 1
+    state.howMany = ct.size() + 1							// initial value is 1
 	dynamicPage(name: "selectConditions", title: "Select Conditions", uninstall: false) {
 		if(state.howMany) {
 			for (int i = 1; i <= state.howMany; i++) {
@@ -139,6 +139,14 @@ def getDevs(myCapab, dev, multi) {
 			thisName = "Power meter" + (multi ? "s" : "")
 			thisCapab = "powerMeter"
 			break
+		case "Carbon monoxide detector":
+			thisName = "CO detector" + (multi ? "s" : "")
+			thisCapab = "carbonMonoxideDetector"
+			break
+		case "Smoke detector":
+			thisName = "Smoke detector" + (multi ? "s" : "")
+			thisCapab = "smokeDetector"
+			break
 		case "Water sensor":
 			thisName = "Water sensors"
 			thisCapab = "waterSensor"
@@ -160,20 +168,22 @@ def getRelational(myDev) {
 
 def getCapab(myCapab) {  // removed , "Valve" to avoid confusion, and , "Certain Time"
 	def myOptions = ["Switch", "Motion", "Acceleration", "Contact", "Presence", "Lock", "Temperature", "Humidity", "Illuminance", "Time of day", 
-    	"Days of week", "Mode", "Dimmer level", "Energy meter", "Power meter", "Water sensor", "Battery"]
+    	"Days of week", "Mode", "Dimmer level", "Energy meter", "Power meter", "Water sensor", "Battery", "Carbon monoxide detector", "Smoke detector"]
 	def result = input myCapab, "enum", title: "Select capability", required: false, options: myOptions.sort(), submitOnChange: true
 }
 
 def getState(myCapab, n) {
 	def result = null
 	def days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
-	if     (myCapab == "Switch") 		result = input "state$n", "enum", title: "Switch state", options: ["on", "off"]
+	if     (myCapab == "Switch") 		result = input "state$n", "enum", title: "Switch state", options: ["on", "off"], defaultValue: "on"
 	else if(myCapab == "Motion") 		result = input "state$n", "enum", title: "Motion state", options: ["active", "inactive"], defaultValue: "active"
-	else if(myCapab == "Acceleration")	result = input "state$n", "enum", title: "Acceleration state", options: ["active", "inactive"]
-	else if(myCapab == "Contact") 		result = input "state$n", "enum", title: "Contact state", options: ["open", "closed"]
+	else if(myCapab == "Acceleration")	result = input "state$n", "enum", title: "Acceleration state", options: ["active", "inactive"], defaultValue: "active"
+	else if(myCapab == "Contact") 		result = input "state$n", "enum", title: "Contact state", options: ["open", "closed"], defaultValue: "open"
 	else if(myCapab == "Presence") 		result = input "state$n", "enum", title: "Presence state", options: ["present", "not present"], defaultValue: "present"
-	else if(myCapab == "Lock")		result = input "state$n", "enum", title: "Lock state", options: ["locked", "unlocked"]
-	else if(myCapab == "Water sensor")	result = input "state$n", "enum", title: "Water state", options: ["dry", "wet"]
+	else if(myCapab == "Lock")		result = input "state$n", "enum", title: "Lock state", options: ["locked", "unlocked"], defaultValue: "unlocked"
+	else if(myCapab == "Carbon monoxide detector")		result = input "state$n", "enum", title: "CO becomes ", options: ["clear", ,"detected", "tested"], defaultValue: "detected"
+	else if(myCapab == "Smoke detector")		result = input "state$n", "enum", title: "Smoke becomes ", options: ["clear", ,"detected", "tested"], defaultValue: "detected"
+	else if(myCapab == "Water sensor")	result = input "state$n", "enum", title: "Water state", options: ["dry", "wet"], defaultValue: "wet"
 	else if(myCapab == "Dimmer level")	result = input "state$n", "number", title: "Dimmer level", range: "0..100"
 	else if(myCapab in ["Temperature", "Humidity", "Illuminance", "Energy meter", "Power meter", "Battery"]) {
     	input "isDev$n", "bool", title: "Relative to another device?", multiple: false, required: false, submitOnChange: true, defaultValue: false
@@ -218,14 +228,15 @@ def certainTime() {
 }
 
 def conditionLabel() {
+	def howMany = state.howMany
 	def result = ""
-	if(state.howMany) {
-		for (int i = 1; i < state.howMany; i++) {
-			result = result + conditionLabelN(i)
-			if((i + 1) < state.howMany) result = result + "\n"
+	if(howMany) {
+		for (int i = 1; i < howMany; i++) {
+			result = result + conditionLabelN(i) + (getOperand(i) ? " [TRUE]" : " [FALSE]")
+			if(i < howMany - 1) result = result + "\n"
 		}
-        if(state.howMany == 2) {
-        	state.str = result[0..-1]
+        if(howMany == 1) {
+        	state.str = result[0..-8]
         	state.eval = [1]
         }
     }
@@ -234,12 +245,12 @@ def conditionLabel() {
 
 def conditionLabelN(i) {
 	def result = ""
-        def thisCapab = settings.find {it.key == "rCapab$i"}
-        if(!thisCapab) return result
-        if(thisCapab.value == "Time of day") result = "Time between " + timeIntervalLabel()
-        else if(thisCapab.value == "Days of week") result = "Day i" + (days.size() > 1 ? "n " + days : "s " + days[0])
-        else if(thisCapab.value == "Mode") result = "Mode i" + (modes.size() > 1 ? "n " + modes : "s " + modes[0])
-        else {
+    def thisCapab = settings.find {it.key == "rCapab$i"}
+    if(!thisCapab) return result
+	if(thisCapab.value == "Time of day") result = "Time between " + timeIntervalLabel()
+	else if(thisCapab.value == "Days of week") result = "Day i" + (days.size() > 1 ? "n " + days : "s " + days[0])
+	else if(thisCapab.value == "Mode") result = "Mode i" + (modes.size() > 1 ? "n " + modes : "s " + modes[0])
+	else {
 		def thisDev = settings.find {it.key == "rDev$i"}
 		if(!thisDev) return result
 		def thisAll = settings.find {it.key == "AllrDev$i"}
@@ -258,8 +269,7 @@ def conditionLabelN(i) {
 		def thisRelDev = settings.find {it.key == "relDevice$i"}
 		if(thisRelDev) result = result + thisRelDev.value
 		else result = result + thisState.value
-		result = result + (getOperand(i) ? " [TRUE]" : " [FALSE]")
-    }
+	}
 	return result
 }
 
@@ -290,7 +300,7 @@ def inputLeft(sub) {
 		if(settings["condL$state.n"]) {
 			state.str = state.str + settings["condL$state.n"]
 			def myCond = 0
-			for (int i = 1; i <= howMany; i++) if(conditionLabelN(i) == settings["condL$state.n"]) myCond = i
+			for (int i = 1; i < state.howMany; i++) if(conditionLabelN(i) == settings["condL$state.n"]) myCond = i
 			state.eval << myCond
 			paragraph(state.str)
 		}
@@ -318,7 +328,7 @@ def inputRight(sub) {
 			if(settings["condR$state.n"]) {
 				state.str = state.str + settings["condR$state.n"]
 				def myCond = 0
-				for (int i = 1; i <= howMany; i++) if(conditionLabelN(i) == settings["condR$state.n"]) myCond = i
+				for (int i = 1; i < state.howMany; i++) if(conditionLabelN(i) == settings["condR$state.n"]) myCond = i
 				state.eval << myCond
 				paragraph(state.str)
 			}
@@ -342,14 +352,14 @@ def inputLeftAndRight(sub) {
 	inputRight(sub)
 }
 
-// Action selection code follows
-
 def stripBrackets(str) {
 	def i = str.indexOf('[')
 	def j = str.indexOf(']')
 	def result = str.substring(0, i) + str.substring(i + 1, j) + str.substring(j + 1)
 	return result
 }
+
+// Action selection code follows
 
 def setActTrue(dev, str) {
 	if(dev) state.actsTrue = state.actsTrue + stripBrackets("$str") + "\n"
@@ -635,6 +645,12 @@ def initialize() {
 				subscribe((settings.find{it.key == "rDev$i"}).value, "illuminance", allHandler)
 				if(myRelDev) subscribe(myRelDev.value, "illuminance", allHandler)
 				break
+			case "Carbon monoxide detector":
+				subscribe((settings.find{it.key == "rDev$i"}).value, "carbonMonoxide", allHandler)
+				break
+			case "Smoke detector":
+				subscribe((settings.find{it.key == "rDev$i"}).value, "smoke", allHandler)
+				break
 			case "Water sensor":
 				subscribe((settings.find{it.key == "rDev$i"}).value, "water", allHandler)
 				break
@@ -677,6 +693,8 @@ def checkCondAny(dev, state, cap, rel, relDev) {
 	else if(cap == "Acceleration") 	result = state in dev.currentAcceleration
 	else if(cap == "Contact") 	result = state in dev.currentContact
 	else if(cap == "Presence") 	result = state in dev.currentPresence
+	else if(cap == "Smoke detector") 	result = state in dev.currentSmoke
+	else if(cap == "Carbon monoxide detector") 	result = state in dev.currentCarbonMonoxide
 	else if(cap == "Lock") 		result = state in dev.currentLock
 //	log.debug "CheckAny $cap $result"
 	return result
@@ -692,6 +710,8 @@ def checkCondAll(dev, state, cap, rel, relDev) {
                 "closed": "open",
                 "wet": "dry",
                 "dry": "wet",
+                "detected": "clear",
+                "clear": "detected",
                 "present": "not present",
                 "not present": "present",
                 "locked": "unlocked",
@@ -710,6 +730,8 @@ def checkCondAll(dev, state, cap, rel, relDev) {
 	else if(cap == "Acceleration") 		result = !(flip[state] in dev.currentAcceleration)
 	else if(cap == "Contact") 		result = !(flip[state] in dev.currentContact)
 	else if(cap == "Presence") 		result = !(flip[state] in dev.currentPresence)
+	else if(cap == "Smoke detector") 	result = !(flip[state] in dev.currentSmoke)
+	else if(cap == "Carbon monoxide detector") 	result = !(flip[state] in dev.currentCarbonMonoxide)
 	else if(cap == "Lock") 			result = !(flip[state] in dev.currentLock)
 //	log.debug "CheckAll $cap $result"
 	return result
