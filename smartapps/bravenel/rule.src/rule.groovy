@@ -3,7 +3,7 @@
  *
  *  Copyright 2015 Bruce Ravenel
  *
- *  Version 1.5.0e   12 Dec 2015
+ *  Version 1.5.1k   13 Dec 2015
  *
  *  Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
  *  in compliance with the License. You may obtain a copy of the License at:
@@ -32,13 +32,16 @@ preferences {
 	page(name: "selectConditions")
 	page(name: "defineRule")
 	page(name: "certainTime")
+    page(name: "certainTimeX")
 	page(name: "atCertainTime")
 	page(name: "selectActionsTrue")
 	page(name: "selectActionsFalse")
 	page(name: "selectMsgTrue")
 	page(name: "selectMsgFalse")
 }
-
+//
+//	
+//
 def selectRule() {
 	def myTitle = "Select Triggers, Conditions, Rule and Actions"
     if(state.isRule) myTitle = "Select Conditions, Rule and Actions"
@@ -78,9 +81,9 @@ def selectRule() {
 			section() { 
 				label title: "Name the Rule", required: true
 				def trigLabel = triggerLabel()
-				href "selectTriggers", title: "Define Triggers " + (state.howManyT == null ? "(Optional)" : ""), description: trigLabel ? (trigLabel) : "Tap to set", state: trigLabel ? "complete" : null, submitOnChange: true
+				href "selectTriggers", title: "Define Triggers " + (state.howManyT in [null, 1] ? "(Optional)" : ""), description: trigLabel ? (trigLabel) : "Tap to set", state: trigLabel ? "complete" : null, submitOnChange: true
 				def condLabel = conditionLabel()
-				href "selectConditions", title: "Define Conditions " + (state.howMany == null ? "(Optional)" : ""), description: condLabel ? (condLabel) : "Tap to set", state: condLabel ? "complete" : null, submitOnChange: true
+				href "selectConditions", title: "Define Conditions " + (state.howMany in [null, 1] ? "(Optional)" : ""), description: condLabel ? (condLabel) : "Tap to set", state: condLabel ? "complete" : null, submitOnChange: true
                 if(state.howMany > 1) 
 					href "defineRule", title: "Define a Rule", description: state.str ? (state.str) : "Tap to set", state: state.str ? "complete" : null, submitOnChange: true
 				href "selectActionsTrue", title: "Select Actions" + (state.howMany > 1 ? " for True" : ""), description: state.actsTrue ? state.actsTrue : "Tap to set", state: state.actsTrue ? "complete" : null, submitOnChange: true
@@ -107,11 +110,11 @@ def selectTriggers() {
     def ct = settings.findAll{it.key.startsWith("tCapab")}
     state.howManyT = ct.size() + 1							// initial value is 1
     def excludes = ["Certain Time", "Mode", "Routine", "Button", "Smart Home Monitor"]
-	dynamicPage(name: "selectTriggers", title: "Select Trigger Events", uninstall: false) {
+	dynamicPage(name: "selectTriggers", title: "Select Trigger Events (ANY will trigger)", uninstall: false) {
 		if(state.howManyT) {
 			for (int i = 1; i <= state.howManyT; i++) {
 				def thisCapab = "tCapab$i"
-				section("Event Trigger #$i") {
+				section((i > 1 ? "OR " : "") + "Event Trigger #$i") {
 					getCapab(thisCapab, true)
 					def myCapab = settings.find {it.key == thisCapab}
 					if(myCapab) {
@@ -138,7 +141,7 @@ def selectConditions() {
     def ct = settings.findAll{it.key.startsWith("rCapab")}
     state.howMany = ct.size() + 1							// initial value is 1
     def excludes = null
-    if(state.isRule) excludes = ["Time of day", "Days of week", "Mode", "Smart Home Monitor"]
+    if(state.isRule || state.howMany > 1) excludes = ["Time of day", "Days of week", "Mode", "Smart Home Monitor"]
     else excludes = ["Certain Time", "Mode", "Routine", "Button", "Smart Home Monitor"]
 	dynamicPage(name: "selectConditions", title: state.isTrig ? "Select Trigger Events" : "Select Conditions", uninstall: false) {
 		if(state.howMany) {
@@ -274,11 +277,11 @@ def getState(myCapab, n, isTrig) {
     def myIsDev = isTrig ? "istDev$n" : "isDev$n"
     def myRelDev = isTrig ? "reltDevice$n" : "relDevice$n"
 	def result = null
-    def phrase = state.isRule ? "state" : "becomes"
-    def swphrase = state.isRule ? "state" : "turns"
-    def presoptions = state.isRule ? ["present", "not present"] : ["arrives", "leaves"]
-    def presdefault = state.isRule ? "present" : "arrives"
-    def lockphrase = state.isRule ? "state" : "is"
+    def phrase = (state.isRule || state.howMany > 1) ? "state" : "becomes"
+    def swphrase = (state.isRule || state.howMany > 1) ? "state" : "turns"
+    def presoptions = (state.isRule || state.howMany > 1) ? ["present", "not present"] : ["arrives", "leaves"]
+    def presdefault = (state.isRule || state.howMany > 1) ? "present" : "arrives"
+    def lockphrase = (state.isRule || state.howMany > 1) ? "state" : "is"
 	def days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 	if     (myCapab == "Switch") 		result = input myState, "enum", title: "Switch $swphrase", options: ["on", "off"], defaultValue: "on"
 	else if(myCapab == "Physical Switch")		result = input myState, "enum", title: "Switch turns ", options: ["on", "off"], defaultValue: "on"
@@ -308,11 +311,11 @@ def getState(myCapab, n, isTrig) {
 	else if(myCapab == "Mode") {
 		def myModes = []
 		location.modes.each {myModes << "$it"}
-        def modeVar = state.isRule ? "modes" : "modesX"
+        def modeVar = (state.isRule || state.howMany > 1) ? "modes" : "modesX"
 		result = input modeVar, "enum", title: "Select mode(s)", multiple: true, required: false, options: myModes.sort()
 	} else if(myCapab == "Time of day") {
-		def timeLabel = timeIntervalLabel()
-		href "certainTime", title: "During a certain time", description: timeLabel ?: "Tap to set", state: timeLabel ? "complete" : null
+		def timeLabel = timeIntervalLabelX()
+		href "certainTimeX", title: "During a certain time", description: timeLabel ?: "Tap to set", state: timeLabel ? "complete" : null
 	} else if(myCapab == "Certain Time") {
 		def atTimeLabel = atTimeLabel()
 		href "atCertainTime", title: "At a certain time", description: atTimeLabel ?: "Tap to set", state: atTimeLabel ? "complete" : null
@@ -343,6 +346,27 @@ def certainTime() {
 	}
 }
 
+def certainTimeX() {
+	dynamicPage(name: "certainTimeX", title: "Only during a certain time", uninstall: false) {
+		section() {
+			input "startingXX", "enum", title: "Starting at", options: ["A specific time", "Sunrise", "Sunset"], defaultValue: "A specific time", submitOnChange: true
+			if(startingXX in [null, "A specific time"]) input "startingA", "time", title: "Start time", required: false
+			else {
+				if(startingXX == "Sunrise") input "startSunriseOffsetX", "number", range: "*..*", title: "Offset in minutes (+/-)", required: false
+				else if(startingXX == "Sunset") input "startSunsetOffsetX", "number", range: "*..*", title: "Offset in minutes (+/-)", required: false
+			}
+		}
+		section() {
+			input "endingXX", "enum", title: "Ending at", options: ["A specific time", "Sunrise", "Sunset"], defaultValue: "A specific time", submitOnChange: true
+			if(endingXX in [null, "A specific time"]) input "endingA", "time", title: "End time", required: false
+			else {
+				if(endingXX == "Sunrise") input "endSunriseOffsetX", "number", range: "*..*", title: "Offset in minutes (+/-)", required: false
+				else if(endingXX == "Sunset") input "endSunsetOffsetX", "number", range: "*..*", title: "Offset in minutes (+/-)", required: false
+			}
+		}
+	}
+}
+
 def atCertainTime() {
 	dynamicPage(name: "atCertainTime", title: "At a certain time", uninstall: false) {
 		section() {
@@ -363,7 +387,7 @@ def triggerLabel() {
 		for (int i = 1; i < howMany; i++) {
         	def thisCapab = settings.find {it.key == "tCapab$i"}
             if(!thisCapab) return result
-            result = result + conditionLabelN(i, true)
+            result = result + (i > 1 ? "OR " : "") + conditionLabelN(i, true)
 			if(i < howMany - 1) result = result + "\n"
 		}
     }
@@ -390,17 +414,17 @@ def conditionLabel() {
 
 def conditionLabelN(i, isTrig) {
 	def result = ""
-    def SHMphrase = state.isRule ? "is" : "becomes"
-    def phrase = state.isRule ? "of" : "becomes"
+    def SHMphrase = (state.isRule || state.howMany > 1) ? "is" : "becomes"
+    def phrase = (state.isRule || state.howMany > 1) ? "of" : "becomes"
     def thisCapab = settings.find {it.key == (isTrig ? "tCapab$i" : "rCapab$i")}
-	if(thisCapab.value == "Time of day") result = "Time between " + timeIntervalLabel()
+	if(thisCapab.value == "Time of day") result = "Time between " + timeIntervalLabelX()
     else if(thisCapab.value == "Certain Time")  result = "When time is " + atTimeLabel()
     else if(thisCapab.value == "Smart Home Monitor") {
     	def thisState = (settings.find {it.key == (isTrig ? "tstate$i" : "state$i")}).value
     	result = "SHM state $SHMphrase " + (thisState in ["away", "stay"] ? "Arm ($thisState)" : "Disarm")
 	} else if(thisCapab.value == "Days of week") result = "Day i" + (days.size() > 1 ? "n " + days : "s " + days[0])
 	else if(thisCapab.value == "Mode") { //result = (state.isRule || !isTrig) ? "Mode i" + (modes.size() > 1 ? "n " + modes : "s " + modes[0]) : "Mode becomes " + (modesX.size() > 1 ? modesX : modesX[0])
-    	if(state.isRule) result = "Mode i" + (modes.size() > 1 ? "n " + modes : "s " + modes[0])
+    	if(state.isRule || state.howMany > 1) result = "Mode i" + (modes.size() > 1 ? "n " + modes : "s " + modes[0])
         if(state.isTrig || isTrig) result = "Mode becomes " + (modesX.size() > 1 ? modesX : modesX[0])
 	} else if(thisCapab.value == "Routine") {
         result = "Routine "
@@ -411,7 +435,7 @@ def conditionLabelN(i, isTrig) {
 		if(!thisDev) return result
 		def thisAll = settings.find {it.key == (isTrig ? "AlltDev$i" : "AllrDev$i")}
 		def myAny = thisAll ? "any " : ""
-		def myButton = settings.find {it.key == "ButtonrDev$i"}
+		def myButton = settings.find {it.key == (isTrig ? "ButtontDev$i" : "ButtonrDev$i")}
 		if     (thisCapab.value == "Temperature") 	result = "Temperature $phrase "
 		else if(thisCapab.value == "Humidity") 		result = "Humidity $phrase "
 		else if(thisCapab.value == "Illuminance")	result = "Illuminance $phrase "
@@ -659,12 +683,12 @@ def selectActionsTrue() {
 			input "myPhraseTrue", "enum", title: "Routine to run", required: false, options: phrases.sort(), submitOnChange: true
 			if(myPhraseTrue) addToActTrue("Routine: $myPhraseTrue")
             def theseRules = parent.ruleList(app.label)
-            input "ruleTrue", "enum", title: "Rules to evaluate", required: false, multiple: true, options: theseRules.sort(), submitOnChange: true
+            if(theseRules != null) input "ruleTrue", "enum", title: "Rules to evaluate", required: false, multiple: true, options: theseRules.sort(), submitOnChange: true
             if(ruleTrue) setActTrue("Rules: $ruleTrue")
 			href "selectMsgTrue", title: "Send message", description: state.msgTrue ? state.msgTrue : "Tap to set", state: state.msgTrue ? "complete" : null
 			if(state.msgTrue) addToActTrue(state.msgTrue)
             if(!randomTrue) {
-				input "delayTrue", "number", title: "Delay " + (state.isRule ? "the effect of this rule" : "this action") + " by this many minutes", required: false, submitOnChange: true
+				input "delayTrue", "number", title: "Delay " + ((state.isRule || state.howMany > 1) ? "the effect of this rule" : "this action") + " by this many minutes", required: false, submitOnChange: true
 				if(delayTrue) {
 					def delayStr = "Delay Rule: $delayTrue minute"
 					if(delayTrue > 1) delayStr = delayStr + "s"
@@ -672,7 +696,7 @@ def selectActionsTrue() {
 				}
             }
             if(!delayTrue) {
-				input "randomTrue", "number", title: "Delay " + (state.isRule ? "the effect of this rule" : "this action") + " by random minutes up to", required: false, submitOnChange: true
+				input "randomTrue", "number", title: "Delay " + ((state.isRule || state.howMany > 1) ? "the effect of this rule" : "this action") + " by random minutes up to", required: false, submitOnChange: true
 				if(randomTrue) {
 					def randomStr = "Random Delay: $randomTrue minutes"
 					addToActTrue(randomStr)
@@ -783,7 +807,7 @@ def selectActionsFalse() {
 			input "myPhraseFalse", "enum", title: "Routine to run", required: false, options: phrases.sort(), submitOnChange: true
 			if(myPhraseFalse) addToActFalse("Routine: $myPhraseFalse")
             def theseRules = parent.ruleList(app.label)
-            input "ruleFalse", "enum", title: "Rules to evaluate", required: false, multiple: true, options: theseRules.sort(), submitOnChange: true
+            if(theseRules != null) input "ruleFalse", "enum", title: "Rules to evaluate", required: false, multiple: true, options: theseRules.sort(), submitOnChange: true
             if(ruleFalse) setActFalse("Rules: $ruleFalse")
 			href "selectMsgFalse", title: "Send message", description: state.msgFalse ? state.msgFalse : "Tap to set", state: state.msgFalse ? "complete" : null
 			if(state.msgFalse) addToActFalse(state.msgFalse)
@@ -830,17 +854,17 @@ def selectMsgFalse() {
 def scheduleTimeOfDay() {
 	def start = null
 	def stop = null
-	def s = getSunriseAndSunset(zipCode: zipCode, sunriseOffset: startSunriseOffset, sunsetOffset: startSunsetOffset)
-	if(startingX == "Sunrise") start = s.sunrise.time
-	else if(startingX == "Sunset") start = s.sunset.time
-	else if(starting) start = timeToday(starting,location.timeZone).time
-	s = getSunriseAndSunset(zipCode: zipCode, sunriseOffset: endSunriseOffset, sunsetOffset: endSunsetOffset)
-	if(endingX == "Sunrise") stop = s.sunrise.time
-	else if(endingX == "Sunset") stop = s.sunset.time
-	else if(ending) stop = timeToday(ending,location.timeZone).time
+	def s = getSunriseAndSunset(zipCode: zipCode, sunriseOffset: startSunriseOffsetX, sunsetOffset: startSunsetOffsetX)
+	if(startingXX == "Sunrise") start = s.sunrise.time
+	else if(startingXX == "Sunset") start = s.sunset.time
+	else if(startingA) start = timeToday(startingA,location.timeZone).time
+	s = getSunriseAndSunset(zipCode: zipCode, sunriseOffset: endSunriseOffsetX, sunsetOffset: endSunsetOffsetX)
+	if(endingXX == "Sunrise") stop = s.sunrise.time
+	else if(endingXX == "Sunset") stop = s.sunset.time
+	else if(endingA) stop = timeToday(endingA,location.timeZone).time
 	schedule(start, "startHandler")
 	schedule(stop, "stopHandler")
-	if(startingX in ["Sunrise", "Sunset"] || endingX in ["Sunrise", "Sunset"])
+	if(startingXX in ["Sunrise", "Sunset"] || endingXX in ["Sunrise", "Sunset"])
 		schedule("2015-01-09T00:15:29.000-0700", "scheduleTimeOfDay") // in case sunset/sunrise; change daily
 }
 
@@ -955,8 +979,8 @@ def initialize() {
 	subscribe(disabled, "switch", disabledHandler)
 	if(disabled) state.disabled = disabled.currentSwitch == "on"
 	else state.disabled = false
-    if(state.isTrig || state.howmany == null) return
-	if(state.isRule || state.howMany > 1) runRule(false)
+    if(state.isTrig || state.howMany == null) return
+	if(state.isRule || state.howMany > 1) runRule(true)
 }
 
 // Main rule evaluation code follows
@@ -1048,7 +1072,7 @@ def getOperand(i, isR) {
 	def result = true
 	def capab = (settings.find {it.key == (isR ? "rCapab$i" : "tCapab$i")}).value
 	if     (capab == "Mode") result = modeOk
-	else if(capab == "Time of day") result = timeOk
+	else if(capab == "Time of day") result = timeOkX
 	else if(capab == "Days of week") result = daysOk
     else if(capab == "Smart Home Monitor") result = (settings.find {it.key == (isR ? "state$i" : "tstate$i")}).value == location.currentState("alarmSystemStatus")?.value
 	else {
@@ -1165,7 +1189,7 @@ def doDelayTrue(time, rand) {
 	runIn(myTime * 60, delayRuleTrue)
 	def delayStr = "minute"
 	if(time > 1) delayStr = delayStr + "s"
-    if(state.isRule) log.info ("$app.label is True, but " + (rand ? "random delay, up to $time minutes" : "delayed by $time $delayStr"))
+    if(state.isRule || state.howMany > 1) log.info ("$app.label is True, but " + (rand ? "random delay, up to $time minutes" : "delayed by $time $delayStr"))
     else log.info (rand ? "Random delay, up to $time minutes" : "Delayed by $time $delayStr")
 }
 
@@ -1175,7 +1199,7 @@ def doDelayFalse(time, rand) {
 	runIn(myTime * 60, delayRuleFalse)
 	def delayStr = "minute"
 	if(time > 1) delayStr = delayStr + "s"
-    if(state.isRule) log.info ("$app.label is False, but " + (rand ? "random delay, up to $time minutes" : "delayed by $time $delayStr"))
+    if(state.isRule || state.howMany > 1) log.info ("$app.label is False, but " + (rand ? "random delay, up to $time minutes" : "delayed by $time $delayStr"))
     else log.info (rand ? "Random delay, up to $time minutes" : "Delayed by $time $delayStr")
 	state.success = success
 }
@@ -1451,6 +1475,19 @@ private timeIntervalLabel() {
 	else if (starting && ending) result = hhmm(starting) + " and " + hhmm(ending, "h:mm a z")
 }
 
+private timeIntervalLabelX() {
+	def result = ""
+	if (startingXX == "Sunrise" && endingXX == "Sunrise") result = "Sunrise" + offset(startSunriseOffsetX) + " and Sunrise" + offset(endSunriseOffsetX)
+	else if (startingXX == "Sunrise" && endingXX == "Sunset") result = "Sunrise" + offset(startSunriseOffsetX) + " and Sunset" + offset(endSunsetOffsetX)
+	else if (startingXX == "Sunset" && endingXX == "Sunrise") result = "Sunset" + offset(startSunsetOffsetX) + " and Sunrise" + offset(endSunriseOffsetX)
+	else if (startingXX == "Sunset" && endingXX == "Sunset") result = "Sunset" + offset(startSunsetOffsetX) + " and Sunset" + offset(endSunsetOffsetX)
+	else if (startingXX == "Sunrise" && endingA) result = "Sunrise" + offset(startSunriseOffsetX) + " and " + hhmm(endingA, "h:mm a z")
+	else if (startingXX == "Sunset" && endingA) result = "Sunset" + offset(startSunsetOffsetX) + " and " + hhmm(endingA, "h:mm a z")
+	else if (startingA && endingXX == "Sunrise") result = hhmm(startingA) + " and Sunrise" + offset(endSunriseOffsetX)
+	else if (startingA && endingXX == "Sunset") result = hhmm(startingA) + " and Sunset" + offset(endSunsetOffsetX)
+	else if (startingA && endingA) result = hhmm(startingA) + " and " + hhmm(endingA, "h:mm a z")
+}
+
 private getAllOk() {
 	if(state.isRule) modeZOk && !state.disabled  //&& daysOk && timeOk
     else modeYOk && daysOk && timeOk && !state.disabled
@@ -1518,6 +1555,29 @@ private getTimeOk() {
 		result = start < stop ? currTime >= start && currTime <= stop : currTime <= stop || currTime >= start
 	}
 //	log.trace "getTimeOk = $result"
+	return result
+}
+
+private getTimeOkX() {
+	def result = true
+	if((startingA && endingA) ||
+	(startingA && endingXX in ["Sunrise", "Sunset"]) ||
+	(startingXX in ["Sunrise", "Sunset"] && endingA) ||
+	(startingXX in ["Sunrise", "Sunset"] && endingXX in ["Sunrise", "Sunset"])) {
+		def currTime = now()
+		def start = null
+		def stop = null
+		def s = getSunriseAndSunset(zipCode: zipCode, sunriseOffset: startSunriseOffsetX, sunsetOffset: startSunsetOffsetX)
+		if(startingXX == "Sunrise") start = s.sunrise.time
+		else if(startingXX == "Sunset") start = s.sunset.time
+		else if(startingA) start = timeToday(startingA, location.timeZone).time
+		s = getSunriseAndSunset(zipCode: zipCode, sunriseOffset: endSunriseOffsetX, sunsetOffset: endSunsetOffsetX)
+		if(endingXX == "Sunrise") stop = s.sunrise.time
+		else if(endingXX == "Sunset") stop = s.sunset.time
+		else if(endingA) stop = timeToday(endingA,location.timeZone).time
+		result = start < stop ? currTime >= start && currTime <= stop : currTime <= stop || currTime >= start
+	}
+//	log.trace "getTimeOkX = $result"
 	return result
 }
 
