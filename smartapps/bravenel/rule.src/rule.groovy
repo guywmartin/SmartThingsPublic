@@ -3,7 +3,7 @@
  *
  *  Copyright 2015 Bruce Ravenel
  *
- *  Version 1.6.3   26 Dec 2015
+ *  Version 1.6.3b   26 Dec 2015
  *
  *	Version History
  *
@@ -37,8 +37,9 @@ definition(
     description: "Rule",
     category: "Convenience",
     parent: "bravenel:Rule Machine",
-    iconUrl: "https://s3.amazonaws.com/smartapp-icons/MyApps/Cat-MyApps.png",
-    iconX2Url: "https://s3.amazonaws.com/smartapp-icons/MyApps/Cat-MyApps@2x.png"
+	iconUrl: "https://raw.githubusercontent.com/bravenel/Rule-Trigger/master/smartapps/bravenel/RuleMachine.png",
+	iconX2Url: "https://raw.githubusercontent.com/bravenel/Rule-Trigger/master/smartapps/bravenel/RuleMachine%402x.png",
+
 )
 
 preferences {
@@ -682,7 +683,7 @@ def selectActionsTrue() {
 		def isRule = state.isRule || state.howMany > 1
 		state.actsTrue = ""
 		section("") {
-			href "delayTruePage", title: "Delay These Actions?", description: state.delayStrTrue ? (state.delayStrTrue) : "Tap to set", state: state.delayStrTrue ? "complete" : null, submitOnChange: true
+			href "delayTruePage", title: "Delay These Actions", description: state.delayStrTrue ? (state.delayStrTrue) : "Tap to set", state: state.delayStrTrue ? "complete" : null, submitOnChange: true
 			if(state.delayStrTrue) addToActTrue(state.delayStrTrue)
 			input "onSwitchTrue", "capability.switch", title: "Turn on these switches", multiple: true, required: false, submitOnChange: true
 			checkActTrue(onSwitchTrue, "On: $onSwitchTrue")
@@ -757,10 +758,8 @@ def selectActionsTrue() {
 			checkActTrue(lockTrue, "Lock: $lockTrue")
 			input "unlockTrue", "capability.lock", title: "Unlock these locks", multiple: true, required: false, submitOnChange: true
 			checkActTrue(unlockTrue, "Unlock: $unlockTrue")
-			if(isTrig) {
-				input "fanAdjustTrue", "capability.switchLevel", title: "Adjust these fans - Low, Medium, High, Off", multiple: false, required: false, submitOnChange: true
-				if(fanAdjustTrue) addToActTrue("Adjust Fan: $fanAdjustTrue")
-			}
+			input "fanAdjustTrue", "capability.switchLevel", title: "Adjust these fans - Low, Medium, High, Off", multiple: false, required: false, submitOnChange: true
+			if(fanAdjustTrue) addToActTrue("Adjust Fan: $fanAdjustTrue")
 			input "openValveTrue", "capability.valve", title: "Open these valves", multiple: true, required: false, submitOnChange: true
 			checkActTrue(openValveTrue, "Open: $openValveTrue")
 			input "closeValveTrue", "capability.valve", title: "Close these valves", multiple: true, required: false, submitOnChange: true
@@ -785,14 +784,14 @@ def selectActionsTrue() {
 			input "modeTrue", "enum", title: "Set the mode", multiple: false, required: false, options: myModes.sort(), submitOnChange: true
 			if(modeTrue) addToActTrue("Mode: $modeTrue")
 			def phrases = location.helloHome?.getPhrases()*.label
-			input "myPhraseTrue", "enum", title: "Routine to run", required: false, options: phrases.sort(), submitOnChange: true
+			input "myPhraseTrue", "enum", title: "Run a Routine", required: false, options: phrases.sort(), submitOnChange: true
 			if(myPhraseTrue) addToActTrue("Routine: $myPhraseTrue")
 			def theseRules = parent.ruleList(app.label)
-			if(theseRules != null) input "ruleTrue", "enum", title: "Rules to evaluate", required: false, multiple: true, options: theseRules.sort(), submitOnChange: true
+			if(theseRules != null) input "ruleTrue", "enum", title: "Evaluate rules", required: false, multiple: true, options: theseRules.sort(), submitOnChange: true
 			if(ruleTrue) setActTrue("Rules: $ruleTrue")
-				href "selectMsgTrue", title: "Send message", description: state.msgTrue ? state.msgTrue : "Tap to set", state: state.msgTrue ? "complete" : null
+				href "selectMsgTrue", title: "Send a message", description: state.msgTrue ? state.msgTrue : "Tap to set", state: state.msgTrue ? "complete" : null
 				if(state.msgTrue) addToActTrue(state.msgTrue)
-			input "cameraTrue", "capability.imageCapture", title: "Camera to take photos", required: false, multiple: false, submitOnChange: true
+			input "cameraTrue", "capability.imageCapture", title: "Take photos", required: false, multiple: false, submitOnChange: true
 			if(cameraTrue) {
 				input "burstCountTrue", "number", title: "How many? (default 5)", defaultValue:5
 				addToActTrue("Photo: $cameraTrue " + (burstCountTrue ?: ""))
@@ -838,7 +837,7 @@ def selectActionsFalse() {
 		def isTrig = state.howManyT > 1
 		state.actsFalse = ""
 		section("") {
-			href "delayFalsePage", title: "Delay These Actions?", description: state.delayStrFalse ? (state.delayStrFalse) : "Tap to set", state: state.delayStrFalse ? "complete" : null, submitOnChange: true
+			href "delayFalsePage", title: "Delay These Actions", description: state.delayStrFalse ? (state.delayStrFalse) : "Tap to set", state: state.delayStrFalse ? "complete" : null, submitOnChange: true
 			if(state.delayStrFalse) addToActFalse(state.delayStrFalse)
 			input "onSwitchFalse", "capability.switch", title: "Turn on these switches", multiple: true, required: false, submitOnChange: true
 			checkActFalse(onSwitchFalse, "On: $onSwitchFalse")
@@ -913,10 +912,8 @@ def selectActionsFalse() {
 			checkActFalse(lockFalse, "Lock: $lockFalse")
 			input "unlockFalse", "capability.lock", title: "Unlock these locks", multiple: true, required: false, submitOnChange: true
 			checkActFalse(unlockFalse, "Unlock: $unlockFalse")
-			if(isTrig) {
-				input "fanAdjustFalse", "capability.switchLevel", title: "Adjust these fans - Low, Medium, High, Off", multiple: false, required: false, submitOnChange: true
-				if(fanAdjustFalse) addToActFalse("Adjust Fan: $fanAdjustFalse")
-			}
+			input "fanAdjustFalse", "capability.switchLevel", title: "Adjust these fans - Low, Medium, High, Off", multiple: false, required: false, submitOnChange: true
+			if(fanAdjustFalse) addToActFalse("Adjust Fan: $fanAdjustFalse")
 			input "openValveFalse", "capability.valve", title: "Open these valves", multiple: true, required: false, submitOnChange: true
 			checkActFalse(openValveFalse, "Open: $openValveFalse")
 			input "closeValveFalse", "capability.valve", title: "Close these valves", multiple: true, required: false, submitOnChange: true
@@ -941,14 +938,14 @@ def selectActionsFalse() {
 			input "modeFalse", "enum", title: "Set the mode", multiple: false, required: false, options: myModes.sort(), submitOnChange: true
 			if(modeFalse) addToActFalse("Mode: $modeFalse")
 			def phrases = location.helloHome?.getPhrases()*.label
-			input "myPhraseFalse", "enum", title: "Routine to run", required: false, options: phrases.sort(), submitOnChange: true
+			input "myPhraseFalse", "enum", title: "Run a Routine", required: false, options: phrases.sort(), submitOnChange: true
 			if(myPhraseFalse) addToActFalse("Routine: $myPhraseFalse")
 			def theseRules = parent.ruleList(app.label)
-			if(theseRules != null) input "ruleFalse", "enum", title: "Rules to evaluate", required: false, multiple: true, options: theseRules.sort(), submitOnChange: true
+			if(theseRules != null) input "ruleFalse", "enum", title: "Evaluate rules", required: false, multiple: true, options: theseRules.sort(), submitOnChange: true
 			if(ruleFalse) setActFalse("Rules: $ruleFalse")
-			href "selectMsgFalse", title: "Send message", description: state.msgFalse ? state.msgFalse : "Tap to set", state: state.msgFalse ? "complete" : null
+			href "selectMsgFalse", title: "Send a message", description: state.msgFalse ? state.msgFalse : "Tap to set", state: state.msgFalse ? "complete" : null
 			if(state.msgFalse) addToActFalse(state.msgFalse)
-			input "cameraFalse", "capability.imageCapture", title: "Camera to take photos", required: false, multiple: false, submitOnChange: true
+			input "cameraFalse", "capability.imageCapture", title: "Take photos", required: false, multiple: false, submitOnChange: true
 			if(cameraFalse) {
 				input "burstCountFalse", "number", title: "How many? (default 5)", defaultValue:5
 				addToActFalse("Photo: $cameraFalse " + (burstCountFalse ?: ""))
