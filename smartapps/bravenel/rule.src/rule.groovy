@@ -3,10 +3,11 @@
  *
  *  Copyright 2015 Bruce Ravenel
  *
- *  Version 1.6.0b   23 Dec 2015
+ *  Version 1.6.1a   24 Dec 2015
  *
  *	Version History
- *	
+ *
+ *	1.6.1a	24 Dec 2015		Added ability to send device name with push or SMS, show rule truth on main page
  *	1.6.0	23 Dec 2015		Added actions for camera to take photo burst, and expert commands per Mike Maxwell
  *	1.5.11a	23 Dec 2015		Fixed bug that prevented old triggers from running, minor UI change for rule display
  *	1.5.10	22 Dec 2015		Require capability choice for all but last rule or trigger
@@ -98,8 +99,9 @@ def selectRule() {
 				href "selectTriggers", title: "Define Triggers " + (state.howManyT in [null, 1] ? "(Optional)" : ""), description: trigLabel ? (trigLabel) : "Tap to set", state: trigLabel ? "complete" : null, submitOnChange: true
 				def condLabel = conditionLabel()
 				href "selectConditions", title: "Define Conditions " + (state.howMany in [null, 1] ? "(Optional)" : ""), description: condLabel ? (condLabel) : "Tap to set", state: condLabel ? "complete" : null, submitOnChange: true
+                def ruleLabel = rulLabl()
                 if(state.howMany > 1) 
-					href "defineRule", title: "Define a Rule", description: state.str ? (state.str) : "Tap to set", state: state.str ? "complete" : null, submitOnChange: true
+					href "defineRule", title: "Define a Rule", description: ruleLabel ? (ruleLabel) : "Tap to set", state: ruleLabel ? "complete" : null, submitOnChange: true
 				href "selectActionsTrue", title: "Select Actions" + (state.howMany > 1 ? " for True" : ""), description: state.actsTrue ? state.actsTrue : "Tap to set", state: state.actsTrue ? "complete" : null, submitOnChange: true
                 if(state.howMany > 1)
 					href "selectActionsFalse", title: "Select Actions for False", description: state.actsFalse ? state.actsFalse : "Tap to set", state: state.actsFalse ? "complete" : null, submitOnChange: true
@@ -443,7 +445,6 @@ def conditionLabelN(i, isTrig) {
     	result = "SHM state $SHMphrase " + (thisState in ["away", "stay"] ? "Arm ($thisState)" : "Disarm")
 	} else if(thisCapab.value == "Days of week") result = "Day i" + (days.size() > 1 ? "n " + days : "s " + days[0])
 	else if(thisCapab.value == "Mode") { 
-//    	if(!modes) return result
         if(state.isTrig || isTrig) result = "Mode becomes " + (modesX.size() > 1 ? modesX : modesX[0])
     	else if(state.isRule || state.howMany > 1) result = "Mode i" + (modes.size() > 1 ? "n " + modes : "s " + modes[0])
 	} else if(thisCapab.value == "Routine") {
@@ -492,6 +493,15 @@ def defineRule() {
 		state.eval = []
 		section() {inputLeftAndRight(false)}
 	}
+}
+
+def rulLabl() {
+	def result = state.str
+    if(state.eval && state.str) {
+    	state.token = 0
+        def tru = eval()
+        result = result + "\n[" + (tru ? "TRUE" : "FALSE") + "]"
+    }
 }
 
 def inputLeft(sub) {
@@ -562,14 +572,14 @@ def inputLeftAndRight(sub) {
 	inputRight(sub)
 }
 
+// Action selection code follows
+
 def stripBrackets(str) {
 	def i = str.indexOf('[')
 	def j = str.indexOf(']')
 	def result = str.substring(0, i) + str.substring(i + 1, j) + str.substring(j + 1)
 	return result
 }
-
-// Action selection code follows
 
 def checkActTrue(dev, str) {
 	if(dev) state.actsTrue = state.actsTrue + stripBrackets("$str") + "\n"
@@ -902,9 +912,10 @@ def selectMsgTrue() {
 		section("") {
 			input "pushTrue", "bool", title: "Send Push Notification?", required: false, submitOnChange: true
 			input "msgTrue", "text", title: "Custom message to send", required: false, submitOnChange: true
+            input "refDevTrue", "bool", title: "Include device name?", required: false, submitOnChange: true
 			input "phoneTrue", "phone", title: "Phone number for SMS", required: false, submitOnChange: true
 		}
-        state.msgTrue = (pushTrue ? "Push" : "") + (msgTrue ? " '$msgTrue'" : "") + (phoneTrue ? " to $phoneTrue" : "")
+        state.msgTrue = (pushTrue ? "Push" : "") + (msgTrue ? " '$msgTrue'" : "") + (refDevTrue ? " [device]" : "") + (phoneTrue ? " to $phoneTrue" : "")
 	}
 }
 
@@ -913,9 +924,10 @@ def selectMsgFalse() {
 		section("") {
 			input "pushFalse", "bool", title: "Send Push Notification?", required: false, submitOnChange: true
 			input "msgFalse", "text", title: "Custom message to send", required: false, submitOnChange: true
+            input "refDevFalse", "bool", title: "Include device name?", required: false, submitOnChange: true
 			input "phoneFalse", "phone", title: "Phone number for SMS", required: false, submitOnChange: true
 		}
-        state.msgFalse = (pushFalse ? "Push" : "") + (msgFalse ? " '$msgFalse'" : "") + (phoneFalse ? " to $phoneFalse" : "")
+        state.msgFalse = (pushFalse ? "Push" : "") + (msgFalse ? " '$msgFalse'" : "") + (refDevFalse ? " [device]" : "") + (phoneFalse ? " to $phoneFalse" : "")
 	}
 }
 
@@ -961,7 +973,8 @@ def updated() {
 
 def uninstalled() {
 //	log.debug "uninstalled called"
-	parent.removeChild(app.label)
+	try { parent.removeChild(app.label) }
+    catch (e) { log.error "No child app found" }
 }
 
 def initialize() {
@@ -1322,8 +1335,8 @@ def runRule(delay) {
 				if(myPhraseTrue)	location.helloHome.execute(myPhraseTrue)
                 if(cameraTrue) 		{	cameraTrue.take() 
                 					(1..((burstCountTrue ?: 5) - 1)).each {cameraTrue.take(delay: (500 * it))}   }
-				if(pushTrue)		sendPush(msgTrue ?: "Rule $app.label True")
-				if(phoneTrue)		sendSms(phoneTrue, msgTrue ?: "Rule $app.label True")
+				if(pushTrue)		sendPush((msgTrue ?: "Rule $app.label True") + (refDevTrue ? " $state.lastEvtName" : ""))
+				if(phoneTrue)		sendSms(phoneTrue, (msgTrue ?: "Rule $app.label True") + (refDevTrue ? " $state.lastEvtName" : ""))
 				if(customDeviceTrue)  execCommand(customDeviceTrue,ccTrue)
 			} else {
 				if(onSwitchFalse) 	onSwitchFalse.on()
@@ -1354,8 +1367,8 @@ def runRule(delay) {
 				if(myPhraseFalse) 	location.helloHome.execute(myPhraseFalse)
                 if(cameraFalse) 		{	cameraFalse.take() 
                 						(1..((burstCountFalse ?: 5) - 1)).each {cameraFalse.take(delay: (500 * it))}   }
-				if(pushFalse)		sendPush(msgFalse ?: "Rule $app.label False")
-				if(phoneFalse)		sendSms(phoneFalse, msgFalse ?: "Rule $app.label False")
+				if(pushFalse)		sendPush((msgFalse ?: "Rule $app.label False") + (refDevFalse ? " $state.lastEvtName" : ""))
+				if(phoneFalse)		sendSms(phoneFalse, (msgFalse ?: "Rule $app.label False") + (refDevFalse ? " $state.lastEvtName" : ""))
 				if(customDeviceFalse)  execCommand(customDeviceFalse,ccFalse)
 			}
 			state.success = success
@@ -1397,8 +1410,8 @@ def doTrigger(delay) {
 		if(modeTrue) 			setLocationMode(modeTrue)
         if(ruleTrue)			parent.runRule(ruleTrue, app.label)
 		if(myPhraseTrue)		location.helloHome.execute(myPhraseTrue)
-		if(pushTrue)			sendPush(msgTrue ?: "Rule $app.label True")
-		if(phoneTrue)			sendSms(phoneTrue, msgTrue ?: "Rule $app.label True")
+		if(pushTrue)			sendPush((msgTrue ?: "Rule $app.label True") + (refDevTrue ? " $state.lastEvtName" : ""))
+		if(phoneTrue)			sendSms(phoneTrue, (msgTrue ?: "Rule $app.label True") + (refDevTrue ? " $state.lastEvtName" : ""))
 		if(customDeviceTrue)  execCommand(customDeviceTrue,ccTrue)
 	}
     log.info ("$app.label Ran")
@@ -1463,6 +1476,7 @@ def testEvt(evt) {
 def allHandler(evt) {
 	if(!allOk) return
     log.info "$app.label: $evt.displayName $evt.name $evt.value"
+    state.lastEvtName = evt.displayName
     def hasTrig = state.howManyT > 1
     def hasCond = state.howMany > 1
     def doit = true

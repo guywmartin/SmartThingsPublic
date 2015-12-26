@@ -3,10 +3,12 @@
  *
  *  Copyright 2015 Bruce Ravenel and Mike Maxwell
  *
- *  Version 1.6   23 Dec 2015
+ *  Version 1.6.2   25 Dec 2015
  *
  *	Version History
  *	
+ *  1.6.2	25 Dec 2015		null parameter value patch in expert, maxwell
+ *	1.6.1	24 Dec 2015		UI improvement
  *	1.6		23 Dec 2015		Added expert commands per Mike Maxwell
  *
  *  Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
@@ -49,12 +51,12 @@ def mainPage() {
         section {
             app(name: "childRules", appName: "Rule", namespace: "bravenel", title: "Create New Rule...", multiple: true)
         }
+		section {
+			href( "expert", title: "", description: "Expert Features", state: "")
+        }
         section {
         	href "removePage", description: "Remove Rule Machine", title: ""
         }
-		section {
-			href( "expert", title: "", description: "Expert Features", state: "")
-		}
     }
 }
 
@@ -285,7 +287,7 @@ def addCustomCommandPAGE(){
 		if (test){
 			def result = execTestCommand()
 			section("Configured command: ${cmdLabel}\n${result}"){
-				if (result == "suceeded"){
+				if (result == "succeeded"){
 					if (!commandExists(cmdLabel)){
 						href( "generalApprovalPAGE"
 							,title		: "Save command now"
@@ -375,6 +377,7 @@ def getPvalue(myPtype, n){
 	}
 	return result
 }
+
 def getCmdLabel(){
 	def cmd
 	if (settings.cCmd) cmd = settings.cCmd.value
@@ -385,27 +388,38 @@ def getCmdLabel(){
 		if (cpTypes.size() == 0){
 			result = result + ")"
 		} else {
-			result = "${result}${getParams(cpTypes)})"
+        	def r = getParams(cpTypes)
+            if (r == "") result = r
+            else result = "${result}${r})"
 		}
 	}
 	return result
 }
+
 def getParams(cpTypes){
 	def result = ""
+    def cpValue
+    def badParam = false
 	cpTypes.each{ cpType ->
 		def i = cpType.key.replaceAll("cpType_","")
 		def cpVal = settings.find{it.key == "cpVal_${i}"}
-		if (cpType.value == "string"){
-			result = result + "'${cpVal.value}'," 
+		if (cpVal){
+        	cpValue = cpVal.value
+            if (cpType.value == "string"){
+   				result = result + "'${cpValue}'," 
+   			} else {
+				if (cpValue.isNumber()){
+					result = result + "${cpValue}," 
+				} else {
+					result = result + "[${cpValue}]: is not a number,"
+				}
+            }
 		} else {
-			if (cpVal.value.isNumber()){
-				result = result + "${cpVal.value}," 
-			} else {
-				result = result + "[${cpVal.value}]: is not a number,"
-			}
-		}
+            badParam = true
+        }
 	}
-	result = result[0..-2]   
+    if (badParam) result = ""
+    else result = result[0..-2]   
 	return result
 }
 
@@ -425,26 +439,35 @@ def parameterLabelN(i){
 	def result = ""
 	def cpType = settings.find{it.key == "cpType_${i}"}
 	def cpVal = settings.find{it.key == "cpVal_${i}"}
-	if (cpType && cpVal){
-		result = "p${i} - type:${cpType.value}, value:${cpVal.value}"
+    def cpValue
+	if (cpVal) cpValue = cpVal.value
+    else cpValue = "missing value"
+	if (cpType){
+		result = "p${i} - type:${cpType.value}, value:${cpValue}"
 	} 
 	return result
 }
+
 def getParamsAsList(cpTypes){
 	def result = []
 	cpTypes.each{ cpType ->
 		def i = cpType.key.replaceAll("cpType_","")
 		def cpVal = settings.find{it.key == "cpVal_${i}"}
-		if (cpType.value == "string"){
-			result << "${cpVal.value}" 
-		} else if (cpType.value == "decimal"){
-			result << cpVal.value.toBigDecimal()
+		if (cpVal){
+			if (cpType.value == "string"){
+				result << "${cpVal.value}" 
+			} else if (cpType.value == "decimal"){
+				result << cpVal.value.toBigDecimal()
+			} else {
+				result << cpVal.value.toInteger() 
+			}
 		} else {
-			result << cpVal.value.toInteger() 
-		}
+        	result << "missing value"
+        }
 	}
 	return result
 }
+
 def getCommands(){
 	def result = [] 
 	def cmdMaps = state.customCommands ?: []
@@ -516,8 +539,7 @@ def execTestCommand(){
 	devices.each { device ->
 		try {
 			device."${cCmd}"(p)
-			//log.info "${device.displayName}: command succeeded"
-			result = "suceeded"
+			result = "succeeded"
 		}
 		catch (IllegalArgumentException e){
 			def em = e as String
@@ -526,6 +548,9 @@ def execTestCommand(){
 			ems = ems.replaceAll(", ","\n")
 			result = "failed, valid commands:\n${ems}"
 		}
+        catch (e){
+        	result = "failed with:\n${e}"
+        }
 	}
 	return result
 }
@@ -559,6 +584,9 @@ def execCommand(cmdID){
 					ems = ems.replaceAll(", ","\n")
 					result = "Command failed, valid commands:\n${ems}"
 				}
+                catch (e){
+        			result = "failed with:\n${e}"
+        		}
 			}
 			return result
 		}
