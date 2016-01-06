@@ -3,11 +3,11 @@
  *
  *  Copyright 2015 Bruce Ravenel
  *
- *  Version 1.6.9a   6 Jan 2016
+ *  Version 1.6.9c   6 Jan 2016
  *
  *	Version History
  *
- *	1.6.9	6 Jan 2016		Fixed bugs related to presence in triggers
+ *	1.6.9	6 Jan 2016		Fixed bugs related to presence in triggers, add Off as disable option
  *	1.6.8	1 Jan 2016		Added version numbers to main Rule Machine page, multi SMS
  *	1.6.7	31 Dec 2015		Added speak to send message
  *	1.6.6	30 Dec 2015		Expert multi-commands added per Maxwell
@@ -72,7 +72,7 @@ preferences {
 def selectRule() {
 	//init expert settings for rule
 	try { 
-		state.isExpert = parent.isExpert("1.6.8d") 
+		state.isExpert = parent.isExpert("1.6.9c") 
 		if (state.isExpert) state.cstCmds = parent.getCommands()
 		else state.cstCmds = []
 	}
@@ -129,7 +129,8 @@ def selectRule() {
 				input "daysY", "enum", title: "Only on certain days of the week", multiple: true, required: false,
 					options: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 				input "modesY", "mode", title: "Only when mode is", multiple: true, required: false            
-				input "disabled", "capability.switch", title: "Switch to disable Rule when ON", required: false, multiple: false
+				input "disabled", "capability.switch", title: "Switch to disable Rule", required: false, multiple: false, submitOnChange: true
+                if(disabled) input "disabledOff", "bool", title: "Disable when Off? On is default", required: false, defaultValue: false
 			}    
 		}
 	}
@@ -532,7 +533,7 @@ def inputLeft(sub) {
 		inputLeftAndRight(true)
 //		input "moreConds$state.n", "bool", title: "More conditions on left?", submitOnChange: true
 //		if(settings["moreConds$state.n"]) inputRight(sub)
-//      inputRight(sub)
+//		inputRight(sub)
 	} else {
 		input "condL$state.n", "enum", title: "Which condition?", options: conds, submitOnChange: true
 		if(settings["condL$state.n"]) {
@@ -561,6 +562,15 @@ def inputRight(sub) {
 			paragraph(state.str)
 			inputLeftAndRight(true)
 			inputRight(sub)
+			if(sub) {
+				input "endOfSub$state.n", "bool", title: "End of sub-rule?", submitOnChange: true
+				if(settings["endOfSub$state.n"]) {
+					state.str = state.str + " )"
+					state.eval << ")"
+					paragraph(state.str)
+					return
+				}
+			}
 		} else {
 			input "condR$state.n", "enum", title: "Which condition?", options: conds, submitOnChange: true
 			if(settings["condR$state.n"]) {
@@ -1155,7 +1165,8 @@ def initialize() {
 	}
 	state.success = null
 	subscribe(disabled, "switch", disabledHandler)
-	if(disabled) state.disabled = disabled.currentSwitch == "on"
+    def disOnOff = disabledOff ? "off" : "on"
+	if(disabled) state.disabled = disabled.currentSwitch == disOnOff
 	else state.disabled = false
 	if(state.isTrig || hasTrig) return
 	if(state.isRule || state.howMany > 1) runRule(true)
@@ -1650,7 +1661,8 @@ def delayRuleFalseForce() {
 }
 
 def disabledHandler(evt) {
-	state.disabled = evt.value == "on"
+	def disOnOff = disabledOff ? "off" : "on"
+	state.disabled = evt.value == disOnOff
 }
 
 def ruleHandler(rule, truth) {
