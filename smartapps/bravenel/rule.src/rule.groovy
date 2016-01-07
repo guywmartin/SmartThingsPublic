@@ -3,11 +3,12 @@
  *
  *  Copyright 2015 Bruce Ravenel
  *
- *  Version 1.6.9c   6 Jan 2016
+ *  Version 1.6.10   6 Jan 2016
  *
  *	Version History
  *
- *	1.6.9	6 Jan 2016		Fixed bugs related to presence in triggers, add Off as disable option
+ *	1.6.10	6 Jan 2016		Returned Delay on/off pending cancel per user request
+ *	1.6.9	6 Jan 2016		Fixed bugs related to presence in triggers, add Off as disable option, fixed bug in rule evaluation
  *	1.6.8	1 Jan 2016		Added version numbers to main Rule Machine page, multi SMS
  *	1.6.7	31 Dec 2015		Added speak to send message
  *	1.6.6	30 Dec 2015		Expert multi-commands added per Maxwell
@@ -72,7 +73,7 @@ preferences {
 def selectRule() {
 	//init expert settings for rule
 	try { 
-		state.isExpert = parent.isExpert("1.6.9c") 
+		state.isExpert = parent.isExpert("1.6.10") 
 		if (state.isExpert) state.cstCmds = parent.getCommands()
 		else state.cstCmds = []
 	}
@@ -724,9 +725,9 @@ def selectActionsTrue() {
 					setActTrue(delayStrTrue)
 				}
 			}
-//            if(state.isRule || state.howMany > 1) {
+            if(state.isRule || state.howMany > 1) {
+				input "pendedOffTrue", "capability.switch", title: "Turn on/off these switches after a delay, pending cancellation (default is OFF)", multiple: true, required: false, submitOnChange: true
 				if(pendedOffTrue) {
-					input "pendedOffTrue", "capability.switch", title: "Turn on/off these switches after a delay, pending cancellation (default is OFF)", multiple: true, required: false, submitOnChange: true
 					input "pendOnOffTrue", "bool", title: "Turn ON after the delay?", multiple: false, required: false, defaultValue: false, submitOnChange: true
 					input "pendMinutesTrue", "number", title: "Minutes of delay", required: true, range: "1..*", submitOnChange: true
 					if(pendMinutesTrue) {
@@ -735,7 +736,7 @@ def selectActionsTrue() {
 						setActTrue(pendStrTrue)
 					}
 				}
-//            }
+            }
 			input "dimATrue", "capability.switchLevel", title: "Set these dimmers", multiple: true, submitOnChange: true, required: false
 			if(dimATrue) {
             	input "dimTrackTrue", "bool", title: "Track event dimmer?", required: false, submitOnChange: true
@@ -878,9 +879,9 @@ def selectActionsFalse() {
 					setActFalse(delayStrFalse)
 				}
 			}
-//            if(isRule) {
+            if(isRule) {
+				input "pendedOffFalse", "capability.switch", title: "Turn on/off these switches after a delay, pending cancellation (default is OFF)", multiple: true, required: false, submitOnChange: true
 				if(pendedOffFalse) {
-					input "pendedOffFalse", "capability.switch", title: "Turn on/off these switches after a delay, pending cancellation (default is OFF)", multiple: true, required: false, submitOnChange: true
 					input "pendOnOffFalse", "bool", title: "Turn ON after the delay?", multiple: false, required: false, defaultValue: false, submitOnChange: true
 					input "pendMinutesFalse", "number", title: "Minutes of delay", required: true, range: "1..*", submitOnChange: true
 					if(pendMinutesFalse) {
@@ -889,7 +890,7 @@ def selectActionsFalse() {
 						setActFalse(pendStrFalse)
 					}
 				}
-//            }
+            }
 			input "dimAFalse", "capability.switchLevel", title: "Set these dimmers", multiple: true, submitOnChange: true, required: false
 			if(dimAFalse) {
             	input "dimTrackFalse", "bool", title: "Track event dimmer?", required: false, submitOnChange: true
@@ -1267,7 +1268,7 @@ def getOperand(i, isR) {
 	def result = true
     def foundItem = (settings.find {it.key == (isR ? "rCapab$i" : "tCapab$i")})
     if (foundItem == null) {
-        log.info "Cannot get operand for i: $i   isR: $isR"
+//        log.info "Cannot get operand for i: $i   isR: $isR"
         return null
     }
 	def capab = (settings.find {it.key == (isR ? "rCapab$i" : "tCapab$i")}).value
@@ -1287,7 +1288,7 @@ def getOperand(i, isR) {
 			else result = checkCondAny(myDev.value, myState ? myState.value : null, capab, myRel ? myRel.value : 0, myRelDev ? myRelDev.value : null)
 		} else result = checkCondAny(myDev.value, myState ? myState.value : null, capab, myRel ? myRel.value : 0, myRelDev ? myRelDev.value : null)
 	}
-//    log.debug "operand is $result"
+//    log.debug "operand $i is $result"
 	return result
 }
 
@@ -1310,12 +1311,13 @@ def disEval() {
 	}
 	if(state.token >= state.eval.size) return
 	state.token = state.token + 1
+//    log.debug "diseval: $state.token"
 }
 
 def evalTerm() {
 	def result = true
 	def thisTok = state.eval[state.token]
-	if (thisTok == "(") {
+	if(thisTok == "(") {
 		state.token = state.token + 1
 		result = eval()
 	} else result = getOperand(thisTok, true)
@@ -1324,18 +1326,20 @@ def evalTerm() {
 }
 
 def eval() {
-	def result = evalTerm()
+    def result = evalTerm()
 	while(true) {
 		if(state.token >= state.eval.size) return result
 		def thisTok = state.eval[state.token]
 		if (thisTok == "OR") {
 			if(result) {
 				disEval()
+                state.token = state.token + 1
 				return true
 			} 
 		} else if (thisTok == "AND") {
 			if(!result) {
 				disEval()
+                state.token = state.token + 1
 				return false
 			} 
 		} else if (thisTok == ")") return result
