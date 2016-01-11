@@ -3,10 +3,11 @@
  *
  *  Copyright 2015 Bruce Ravenel
  *
- *  Version 1.6.11e   9 Jan 2016
+ *  Version 1.6.12b   10 Jan 2016
  *
  *	Version History
  *
+ *	1.6.12	10 Jan 2016		Bug fix re removing parts of a rule
  *	1.6.11	8 Jan 2016		Added offset to compare to device, fixed bugs in compare to device
  *	1.6.10	6 Jan 2016		Returned Delay on/off pending cancel per user request, further debug of rule evaluation
  *	1.6.9	6 Jan 2016		Fixed bugs related to presence in triggers, add Off as disable option, fixed bug in rule evaluation
@@ -74,7 +75,7 @@ preferences {
 def selectRule() {
 	//init expert settings for rule
 	try { 
-		state.isExpert = parent.isExpert("1.6.11e") 
+		state.isExpert = parent.isExpert("1.6.12b") 
 		if (state.isExpert) state.cstCmds = parent.getCommands()
 		else state.cstCmds = []
 	}
@@ -1445,12 +1446,12 @@ def takeAction(success) {
 								if(delayMillisTrue) {if(delayOnOffTrue) delayedOffTrue.on([delay: delayMillisTrue]) else delayedOffTrue.off([delay: delayMillisTrue])}   }
 		if(pendedOffTrue)		runIn(pendMinutesTrue * 60, pendingOffTrue)
 		if(pendedOffFalse)		unschedule(pendingOffFalse)
-        if(dimTrackTrue)		if(state.lastEvtLevel != null) {if(delayMilTrue) dimATrue.setLevel(state.lastEvtLevel, [delay: delayMilTrue]) else dimATrue.setLevel(state.lastEvtLevel)}
-		if(dimATrue && dimLATrue) if(delayMilTrue) dimATrue.setLevel(dimLATrue, [delay: delayMilTrue]) else dimATrue.setLevel(dimLATrue)
-		if(dimBTrue && dimLBTrue) if(delayMilTrue) dimBTrue.setLevel(dimLBTrue, [delay: delayMilTrue]) else dimBTrue.setLevel(dimLBTrue)
-		if(toggleDimmerTrue)	dimToggle(toggleDimmerTrue, dimTogTrue, true)
-        if(adjustDimmerTrue)	dimAdjust(adjustDimmerTrue, dimAdjTrue, true)
-		if(ctTrue)   			ctTrue.setColorTemperature(ctLTrue)
+        if(dimTrackTrue && dimATrue != null) if(state.lastEvtLevel != null) {if(delayMilTrue) dimATrue.setLevel(state.lastEvtLevel, [delay: delayMilTrue]) else dimATrue.setLevel(state.lastEvtLevel)}
+		if(dimATrue && dimLATrue != null) if(delayMilTrue) dimATrue.setLevel(dimLATrue, [delay: delayMilTrue]) else dimATrue.setLevel(dimLATrue)
+		if(dimBTrue && dimLBTrue != null) if(delayMilTrue) dimBTrue.setLevel(dimLBTrue, [delay: delayMilTrue]) else dimBTrue.setLevel(dimLBTrue)
+		if(toggleDimmerTrue && dimTogTrue != null)	dimToggle(toggleDimmerTrue, dimTogTrue, true)
+        if(adjustDimmerTrue && dimAdjTrue != null)	dimAdjust(adjustDimmerTrue, dimAdjTrue, true)
+		if(ctTrue && ctLTrue)   			ctTrue.setColorTemperature(ctLTrue)
 		if(bulbsTrue)			setColor(true)
 		if(garageOpenTrue)		if(delayMilTrue) garageOpenTrue.open([delay: delayMilTrue]) else garageOpenTrue.open()
 		if(garageCloseTrue)		if(delayMilTrue) garageCloseTrue.close([delay: delayMilTrue]) else garageCloseTrue.close()
@@ -1481,11 +1482,11 @@ def takeAction(success) {
                 				if(delayMillisFalse) {if(delayOnOffFalse) delayedOffFalse.on([delay: delayMillisFalse]) else delayedOffFalse.off([delay: delayMillisFalse])}   }
 		if(pendedOffFalse)		runIn(pendMinutesFalse * 60, pendingOffFalse)
 		if(pendedOffTrue)		unschedule(pendingOffTrue)
-        if(dimTrackFalse)		if(state.lastEvtLevel != null) {if(delayMilFalse) dimAFalse.setLevel(state.lastEvtLevel, [delay: delayMilFalse]) else dimAFalse.setLevel(state.lastEvtLevel)}
-		if(dimAFalse && dimLAFalse) if(delayMilFalse) dimAFalse.setLevel(dimLAFalse, [delay: delayMilFalse]) else dimAFalse.setLevel(dimLAFalse)
-		if(dimBFalse && dimLBFalse) if(delayMilFalse) dimBFalse.setLevel(dimLBFalse, [delay: delayMilFalse]) else dimBFalse.setLevel(dimLBFalse)
-		if(toggleDimmerFalse)	dimToggle(toggleDimmerFalse, dimTogFalse, false)
-        if(adjustDimmerFalse)	dimAdjust(adjustDimmerFalse, dimAdjFalse, false)
+        if(dimTrackFalse && dimAFalse != null) if(state.lastEvtLevel != null) {if(delayMilFalse) dimAFalse.setLevel(state.lastEvtLevel, [delay: delayMilFalse]) else dimAFalse.setLevel(state.lastEvtLevel)}
+		if(dimAFalse && dimLAFalse != null) if(delayMilFalse) dimAFalse.setLevel(dimLAFalse, [delay: delayMilFalse]) else dimAFalse.setLevel(dimLAFalse)
+		if(dimBFalse && dimLBFalse != null) if(delayMilFalse) dimBFalse.setLevel(dimLBFalse, [delay: delayMilFalse]) else dimBFalse.setLevel(dimLBFalse)
+		if(toggleDimmerFalse && dimTogFalse != null) dimToggle(toggleDimmerFalse, dimTogFalse, false)
+        if(adjustDimmerFalse && dimAdjFalse != null) dimAdjust(adjustDimmerFalse, dimAdjFalse, false)
 		if(ctFalse)   			ctFalse.setColorTemperature(ctLFalse)
 		if(bulbsFalse)			setColor(false)
 		if(garageOpenFalse)		if(delayMilFalse) garageOpenFalse.open([delay: delayMilFalse]) else garageOpenFalse.open()
@@ -1592,10 +1593,13 @@ def testEvt(evt) {
 	}
 	for(int i = 1; i < howMany; i++) {
 		def myDev = settings.find {it.key == (state.isTrig ? "rDev$i" : "tDev$i")}
-		if(myDev) myDev.value.each {if(evt.displayName == it.displayName) {
-			if(evt.name == "button") result = getButton(myDev, evt, i)
-			else result = getOperand(i, state.isTrig)}
-		}
+		if(myDev) {
+        	myDev = myDev.value
+        	myDev.each {if(evt.displayName == it.displayName) {
+				if(evt.name == "button") result = getButton(myDev, evt, i)
+				else result = getOperand(i, state.isTrig)}
+			}
+        }
 		if(result) return result
 	}
 	return result
