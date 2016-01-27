@@ -3,10 +3,11 @@
  *
  *  Copyright 2015 Bruce Ravenel
  *
- *  Version 1.6.13b   17 Jan 2016
+ *  Version 1.7.0a   27 Jan 2016
  *
  *	Version History
  *
+ *	1.7.0	27 Jan 2016		Fixed thermostat mode trigger/condition
  *	1.6.13	17 Jan 2016		Added TTS support
  *	1.6.12	10 Jan 2016		Bug fix re removing parts of a rule
  *	1.6.11	8 Jan 2016		Added offset to compare to device, fixed bugs in compare to device
@@ -76,7 +77,7 @@ preferences {
 def selectRule() {
 	//version to parent app and expert settings for rule
 	try { 
-		state.isExpert = parent.isExpert("1.6.13b") 
+		state.isExpert = parent.isExpert("1.7.0a") 
 		if (state.isExpert) state.cstCmds = parent.getCommands()
 		else state.cstCmds = []
 	}
@@ -805,7 +806,7 @@ def selectActionsTrue() {
 				input "thermoModeTrue", "enum", title: "Select thermostate mode", multiple: false, required: false, options: ["auto", "heat", "cool", "off"], submitOnChange: true
 				input "thermoSetHeatTrue", "decimal", title: "Set heating point", multiple: false, required: false, submitOnChange: true
 				input "thermoSetCoolTrue", "decimal", title: "Set cooling point", multiple: false, required: false, submitOnChange: true 
-				input "thermoFanTrue", "enum", title: "Fan setting", multiple: false, required: false, submitOnChange: true, options: ["fanOn", "fanAuto"]
+				input "thermoFanTrue", "enum", title: "Fan setting", multiple: false, required: false, submitOnChange: true, options: ["on", "auto"]
 				buildActTrue("$thermoTrue: ", true)
 				if(thermoModeTrue) buildActTrue("Mode: " + thermoModeTrue + " ", false)
 				if(thermoSetHeatTrue) buildActTrue("Heat to $thermoSetHeatTrue ", false)
@@ -957,7 +958,7 @@ def selectActionsFalse() {
 				input "thermoModeFalse", "enum", title: "Select thermostate mode", multiple: false, required: false, options: ["auto", "heat", "cool", "off"], submitOnChange: true
 				input "thermoSetHeatFalse", "decimal", title: "Set heating point", multiple: false, required: false, submitOnChange: true
 				input "thermoSetCoolFalse", "decimal", title: "Set cooling point", multiple: false, required: false, submitOnChange: true 
-				input "thermoFanFalse", "enum", title: "Fan setting", multiple: false, required: false, submitOnChange: true, options: ["fanOn", "fanAuto"]
+				input "thermoFanFalse", "enum", title: "Fan setting", multiple: false, required: false, submitOnChange: true, options: ["on", "auto"]
 				buildActFalse("$thermoFalse: ", true)
 				if(thermoModeFalse) buildActFalse("Mode: " + thermoModeFalse + " ", false)
 				if(thermoSetHeatFalse) buildActFalse("Heat to $thermoSetHeatFalse ", false)
@@ -1171,6 +1172,9 @@ def initialize() {
 			case "Garage door":
 				subscribe(myDev.value, "door" + ((state.isTrig || hasTrig) ? ".$myState" : ""), allHandler)
 				break
+			case "Thermostat":
+				subscribe(myDev.value, "thermostatMode" + ((state.isTrig || hasTrig) ? ".$myState" : ""), allHandler)
+				break
 			case "Physical Switch":
 				subscribe(myDev.value, "switch.$myState", physicalHandler)
 				break
@@ -1230,6 +1234,7 @@ def checkCondAny(dev, stateX, cap, rel, relDev) {
 	else if(cap == "Carbon monoxide detector") 	result = stateX in dev.currentCarbonMonoxide
 	else if(cap == "Lock") 		result = stateX in dev.currentLock
 	else if(cap == "Garage door")	result = stateX in dev.currentDoor
+	else if(cap == "Thermostat")	result = stateX in dev.currentThermostatMode
 //	log.debug "CheckAny $cap $result"
 	return result
 }
@@ -1276,6 +1281,7 @@ def checkCondAll(dev, stateX, cap, rel, relDev) {
 	else if(cap == "Carbon monoxide detector") 	result = !(flip[stateX] in dev.currentCarbonMonoxide)
 	else if(cap == "Lock") 			result = !(flip[stateX] in dev.currentLock)
 	else if(cap == "Garage door")	result = !(flip[stateX] in dev.currentDoor)
+    else if(cap == "Thermostat")	dev.currentThermmostatMode.each {result = result && stateX == it}
 //	log.debug "CheckAll $cap $result"
 	return result
 }
