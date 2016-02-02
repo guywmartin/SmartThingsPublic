@@ -3,10 +3,11 @@
  *
  *  Copyright 2015 Bruce Ravenel
  *
- *  Version 1.7.2d   1 Feb 2016
+ *  Version 1.7.3b   2 Feb 2016
  *
  *	Version History
  *
+ *	1.7.3	2 Feb 2016		Bug fix for multi-button device with more than 4 buttons
  *	1.7.2	31 Jan 2016		Added mode based dimming action, and cause rule actions action
  *	1.7.1	30 Jan 2016		Added support for more buttons than 4 on button device, now as many as 20
  *	1.7.0	27 Jan 2016		Fixed thermostat mode trigger/condition, added thermostat operating state condition
@@ -79,7 +80,7 @@ preferences {
 def selectRule() {
 	//version to parent app and expert settings for rule
 	try { 
-		state.isExpert = parent.isExpert("1.7.2d") 
+		state.isExpert = parent.isExpert("1.7.3b") 
 		if (state.isExpert) state.cstCmds = parent.getCommands()
 		else state.cstCmds = []
 	}
@@ -1624,35 +1625,30 @@ def doTrigger() {
 }
 
 def getButton(dev, evt, i) {
-	def buttonNumber = evt.data 
-	def value = evt.value
+	def numNames = ["", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten",
+    	"eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen", "twenty"]
+	def buttonNumber = evt.jsonData.buttonNumber 
+    def value = evt.value
 //	log.debug "buttonEvent: $evt.name = $evt.value ($evt.data)"
 //	log.debug "button: $buttonNumber, value: $value"
 //	log.debug "button json: $evt.jsonData.buttonNumber"
 	def recentEvents = dev.eventsSince(new Date(now() - 3000)).findAll{it.value == evt.value && it.data == evt.data}
-//	log.debug "Found ${recentEvents.size()?:0} events in past 3 seconds"
+//	log.debug "Found ${recentEvents.size()?:0} events in past second"
 	def thisButton = 0
-	if(recentEvents.size <= 1){
-		switch(buttonNumber) {
-			case ~/.*1.*/:
-				thisButton = "one"
-				break
-			case ~/.*2.*/:
-				thisButton = "two"
-				break
-			case ~/.*3.*/:
-				thisButton = "three"
-				break
-			case ~/.*4.*/:
-				thisButton = "four"
-				break
-		}
+	def firstEventId = 0
+	if (recentEvents.size() != 0) {
+		firstEventId = recentEvents[0].id
+	} 
+	if(firstEventId == evt.id){
+		thisButton = numNames[buttonNumber]
 //	} else {
 //		log.debug "Found recent button press events for $buttonNumber with value $value"
 	}
 	def myState = settings.find {it.key == (state.isTrig ? "state$i" : "tstate$i")}
 	def myButton = settings.find {it.key == (state.isTrig ? "ButtonrDev$i" : "ButtontDev$i")}
-	def result = (evt.value == myState.value) && (thisButton == myButton.value)
+    def result = true
+    if(value in ["pushed", "held"]) result = (value == myState.value) && (thisButton == myButton.value)
+    else result = thisButton == myButton.value
 }
 
 def testEvt(evt) {
