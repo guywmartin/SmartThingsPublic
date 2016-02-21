@@ -3,7 +3,7 @@
  *
  *  Copyright 2015, 2016 Bruce Ravenel
  *
- *  Version 1.7.12b   19 Feb 2016
+ *  Version 1.7.12d   20 Feb 2016
  *
  *	Version History
  *
@@ -91,7 +91,7 @@ preferences {
 def mainPage() {
 	//version to parent app and expert settings for rule
 	try { 
-		state.isExpert = parent.isExpert("1.7.12b") 
+		state.isExpert = parent.isExpert("1.7.12d") 
 		if (state.isExpert) state.cstCmds = parent.getCommands()
 		else state.cstCmds = []
 	}
@@ -137,7 +137,7 @@ def mainPage() {
 		else if(state.howManyT > 1) 								getCTrigger()   // Existing Conditional Trigger
 		else if(app.label != "Rule" && app.label != null) 			getActions()	// Existing Actions
         else {																		// New Rule, Trigger, Conditional Trigger or Actions
-            section("A Rule uses conditions tested under a rule to run actions") 									{href "selectRule", title: "Define a Rule", description: "Tap to set"}
+            section("A Rule uses events for conditions and then\ntests a rule to run actions") 							{href "selectRule", title: "Define a Rule", description: "Tap to set"}
             section("A Trigger uses events to run actions") 														{href "selectTrig", title: "Define a Trigger", description: "Tap to set"}
             section("A Conditional Trigger uses events to run actions\nbased on conditions tested under a rule") 	{href "selectCTrig", title: "Define a Conditional Trigger", description: "Tap to set"}
             section("Other Rules can run these Actions") 															{href "selectActions", title: "Define Actions", description: "Tap to set"}
@@ -1681,42 +1681,44 @@ def doDelayFalse(time, rand, cancel) {
 def capture(dev) {
 	state.lastDevState = []
 	def i = 0
-	def switchState = ""
-	def dimmerValue = ""
-    def hueValue = ""
-    def satValue = ""
+	def switchState = null
+	def dimmerValue = null
+    def hueValue = null
+    def satValue = null
 	dev.each {
-		switchState = "$it.currentSwitch"
-		dimmerValue = "$it.currentLevel" 
-        hueValue = "$it.currentHue"
-        satValue = "$it.currentSaturation"
+		switchState = it.currentSwitch
+		dimmerValue = it.currentLevel 
+        hueValue = it.currentHue
+        satValue = it.currentSaturation
 		state.lastDevState[i] = [switchState: switchState, dimmerValue: dimmerValue, hueValue: hueValue, satValue: satValue]
 		i++       	
 	}
 }
 
-def restoreDev(switches, switchState, dimmerValue, hueValue, satValue, i) {
-	if(switchState == "off") switches[i].off()
-    else if(hueValue > 0 && satValue > 0) {
-		def newValue = [hue: hueValue, saturation: satValue, level: dimmerValue]
+def restoreDev(switches, switchState, dimmerValue, hueValue, satValue) {
+    int hueX = hueValue in ["null", null] ? 0 : hueValue.toInteger()
+    int satX = satValue in ["null", null] ? 0 : satValue.toInteger()
+	if(switchState == "off") switches.off()
+    else if(hueX > 0 && satX > 0) {
+		def newValue = [hue: hueX, saturation: satX, level: dimmerValue]
         switches.setColor(newValue)
-    } else if(dimmerValue) switches[i].setLevel(dimmerValue)
-    else switches[i].on()            
+    } else if(dimmerValue) switches.setLevel(dimmerValue)
+    else switches.on()
 }
 
 def restore() {
 	def i = 0
-	def switchState = ""
-	def dimmerValue = ""
-    def hueValue = ""
-    def satValue = ""
+	def switchState = null
+	def dimmerValue = null
+    def hueValue = null
+    def satValue = null
 	state.lastDevState.each {
     	switchState = it.switchState
-        dimmerValue = it.dimmerValue.toInteger()
-        hueValue = it.hueValue.toInteger()
-        satValue = it.satValue.toInteger()
-        if(captureTrue) restoreDev(captureTrue, switchState, dimmerValue, hueValue, satValue, i)
-        if(captureFalse) restoreDev(captureFalse, switchState, dimmerValue, hueValue, satValue, i)
+        dimmerValue = it.dimmerValue
+        hueValue = it.hueValue
+        satValue = it.satValue
+        if(captureTrue) restoreDev(captureTrue[i], switchState, dimmerValue, hueValue, satValue)
+        if(captureFalse) restoreDev(captureFalse[i], switchState, dimmerValue, hueValue, satValue)
         i++
     }
 }

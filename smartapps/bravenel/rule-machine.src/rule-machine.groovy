@@ -3,10 +3,11 @@
  *
  *  Copyright 2015, 2016 Bruce Ravenel and Mike Maxwell
  *
- *  Version 1.7.3   14 Feb 2016
+ *  Version 1.7.4a   20 Feb 2016
  *
  *	Version History
  *
+ *	1.7.4	20 Feb 2016		Added saved command display, UI improvements
  *	1.7.3	14 Feb 2016		Improved Rule Machine initialization, fixed Delete custom commands bug
  *	1.7.2	8 Feb 2016		Added set Boolean for Rules
  *	1.7.1	5 Feb 2016		Added update Rule
@@ -46,9 +47,8 @@ preferences {
 	page(name: "mainPage")
 	page(name: "removePage")
 	//expert pages
-	page(name: "expert")
-	page(name: "generalApprovalPAGE")
 	page(name: "customCommandsPAGE")
+	page(name: "generalApprovalPAGE")
 	page(name: "addCustomCommandPAGE")
 	page(name: "customParamsPAGE")
 }
@@ -61,12 +61,13 @@ def mainPage() {
             app(name: "childRules", appName: "Rule", namespace: "bravenel", title: "Create New Rule...", multiple: true)
         }
 		section ("Expert Features") {
-			href( "expert", title: "", description: "Tap to create custom commands", state: "")
+//			href( "expert", title: "", description: "Tap to create custom commands", state: "")
+			href("customCommandsPAGE", title: null, description: "Custom Commands...", state: anyCustom())
         }
         section ("Remove Rule Machine"){
         	href "removePage", description: "Tap to remove Rule Machine ", title: ""
         }
-        if(state.ver) section ("Version 1.7.3/" + state.ver) { }
+        if(state.ver) section ("Version 1.7.4a/" + state.ver) { }
     }
 }
 
@@ -88,12 +89,6 @@ def firstRun() {
 	state.ruleState = [:]
 	state.ruleSubscribers = [:]
 }
-
-//def initialize() {
-//	childApps.each {child ->
-//		if(child.name == "Rule") log.info "Installed Rules and Triggers: ${child.label}"
-//	}
-//}
 
 def ruleList(appLabel) {
 	def result = []
@@ -189,20 +184,6 @@ def runUpdate(rule) {
 }
 
 /*****custom command specific pages	*****/
-def expert(){
-	dynamicPage(name: "expert", title: "Expert Features", uninstall: false, install: false) {
-		section(){
-			paragraph "${expertText()}"
-			//expert hrefs...
-			href( "customCommandsPAGE"
-				,title		: "Configure Custom Commands..."
-				,description: ""
-				,state		: anyCustom()
-			)
-		}
-	}
-}
-
 def generalApprovalPAGE(params){
 	def title = params.title
 	def method = params.method
@@ -221,46 +202,30 @@ def customCommandsPAGE() {
 	if (!state.lastCmdIDX) state.lastCmdIDX = 0
 	def savedCommands = getCommands()
 	dynamicPage(name: "customCommandsPAGE", title: "Custom Commands", uninstall: false, install: false) {
-		section(){
-			input(
-				name			: "devices"
-				,title			: "Test device"
-				,multiple		: false
-				,required		: false
-				,type			: "capability.actuator"
-				,submitOnChange	: true
-			)
-			if (settings.devices && savedCommands.size() != 0){
+    	def hasCommands = savedCommands.size() != 0
+		section(hasCommands ? "Saved Commands" : "") {
+			if (hasCommands){
+				def cmdMaps = state.customCommands ?: []
+				def result = ""
+				cmdMaps.each{ cmd ->
+					def cont = cmd.value.text.size() > 30 ? "..." : ""
+					result = result + "\n\t" + cmd.value.text.take(30) + cont
+				}
+				paragraph(result)
 				input(
 					name			: "testCmd"
-					,title			: "Select saved command to test"
+					,title			: "Test saved command"
 					,multiple		: false
 					,required		: false
 					,type			: "enum"
 					,options		: savedCommands
 					,submitOnChange	: true
 				)
-			}
-		}
-		def result = execCommand(settings.testCmd)
-		if (result) {
-			section("${result}"){
-			}
-		}
-		section(){
-		if (devices){
-				href( "addCustomCommandPAGE"
-					,title		: "New custom command..."
-					,description: ""
-					,state		: null
-				)
-			}
-        }
-		if (getCommands()){
-			section(){
+				def res = execCommand(settings.testCmd)
+				if (res) paragraph("${result}")
 				input(
 					name			: "deleteCmds"
-					,title			: "Delete custom commands..."
+					,title			: "Delete saved commands"
 					,multiple		: true
 					,required		: false
                     ,description	: ""
@@ -277,25 +242,123 @@ def customCommandsPAGE() {
 						,submitOnChange	: true
 					)
 				}
+                paragraph("\n")
 			}
+//            getCapab()
+            if(myCapab) getDevs(myCapab) else getDevs("Actuator")
 		}
+		section(){
+			if (devices){
+				href( "addCustomCommandPAGE"
+					,title		: "New custom command..."
+					,description: ""
+					,state		: null
+				)
+			}
+        }
 	}
+}
+
+def getCapab() {  
+	def myOptions = ["Acceleration", "Button", "Carbon monoxide detector", "Contact", "Energy meter", "Garage door", "Humidity", "Illuminance", 
+    	"Lock", "Motion", "Power meter", "Presence", "Smoke detector", "Switch", "Temperature",
+        "Water sensor", "Music player", "Actuator"]
+	def result = input "myCapab", "enum", title: "Select capability for test device", required: false, options: myOptions.sort(), submitOnChange: true, defaultValue: "Actuator"
+}
+
+def getDevs(myCapab) {
+	def multi = false
+    def thisName = ""
+    def thisCapab = ""
+	switch(myCapab) {
+		case "Switch":
+			thisName = "switch"
+			thisCapab = "switch"
+			break
+		case "Actuator":
+			thisName = "device"
+			thisCapab = "actuator"
+			break
+		case "Motion":
+			thisName = "motion sensor"
+			thisCapab = "motionSensor"
+			break
+		case "Acceleration":
+			thisName = "acceleration sensor"
+			thisCapab = "accelerationSensor"
+			break        
+		case "Contact":
+			thisName = "contact sensor"
+			thisCapab = "contactSensor"
+			break
+		case "Presence":
+			thisName = "presence sensor"
+			thisCapab = "presenceSensor"
+			break
+		case "Garage door":
+			thisName = "garage door"
+			thisCapab = "garageDoorControl"
+			break
+		case "Lock":
+			thisName = "lock"
+			thisCapab = "lock"
+			break
+		case "Temperature":
+			thisName = "temperature sensor" + (multi ? "s" : "")
+			thisCapab = "temperatureMeasurement"
+			break
+		case "Humidity":
+			thisName = "humidity sensor" + (multi ? "s" : "")
+			thisCapab = "relativeHumidityMeasurement"
+			break
+		case "Illuminance":
+			thisName = "illuminance sensor" + (multi ? "s" : "")
+			thisCapab = "illuminanceMeasurement"
+			break
+		case "Energy meter":
+			thisName = "energy meter" + (multi ? "s" : "")
+			thisCapab = "energyMeter"
+			break
+		case "Power meter":
+			thisName = "power meter" + (multi ? "s" : "")
+			thisCapab = "powerMeter"
+			break
+		case "Carbon monoxide detector":
+			thisName = "CO detector" + (multi ? "s" : "")
+			thisCapab = "carbonMonoxideDetector"
+			break
+		case "Smoke detector":
+			thisName = "smoke detector" + (multi ? "s" : "")
+			thisCapab = "smokeDetector"
+			break
+		case "Water sensor":
+			thisName = "water sensor"
+			thisCapab = "waterSensor"
+			break
+		case "Music player":
+			thisName = "music player"
+			thisCapab = "musicPlayer"
+	}
+	def result = input "devices", "capability.$thisCapab", title: "Select $thisName to test for commands", required: false, multiple: multi, submitOnChange: true
 }
 
 def addCustomCommandPAGE(){
 	def cmdLabel = getCmdLabel()
 	def complete = "" 
 	def test = false
-	def pageTitle = "Create new custom command for:\n${devices}" 
+    def rest = getDeviceCommands()
+    rest = "$rest"[1..-2]
+	def pageTitle = "Create new custom command from\n\n${devices}\n\nAvailable commands:\n\n" + rest
 	if (cmdLabel){
 		complete = "complete"
 		test = true
 	}
 	dynamicPage(name: "addCustomCommandPAGE", title: pageTitle, uninstall: false, install: false) {
 		section(){
+//            paragraph("$rest"[1..-2])
 			input(
 		   		name			: "cCmd"
-				,title			: "Available device commands"
+				,title			: "Select custom command"
 				,multiple		: false
 				,required		: false
 				,type			: "enum"
@@ -629,13 +692,4 @@ def getDeviceCommands(){
 def isExpert(ver){
 	state.ver = ver
 	return getCommands().size() > 0
-}
-
-def expertText() {
-	def text = 
-		"Custom commands allows Rule Machine to control devices with custom capabilities. " +
-		"This includes dual dimmers and switches, ThingShields, FGBW controllers or any device you might build a " +
-		"custom SmartApp to utilize.\n\nCustom commands that are created and saved here will become available for use " +
-		"in any new or existing rules.\n\nAfter saving at least one command, look for 'Run custom device command' in your " + 
-		"'Select Actions' sections."
 }
