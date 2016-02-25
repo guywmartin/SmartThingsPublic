@@ -3,10 +3,11 @@
  *
  *  Copyright 2015, 2016 Bruce Ravenel
  *
- *  Version 1.7.13a   22 Feb 2016
+ *  Version 1.7.14d   23 Feb 2016
  *
  *	Version History
  *
+ *	1.7.14	23 Feb 2016		Added adjust thermostat setpoints, delay Set Private Boolean
  *	1.7.13	21 Feb 2016		Improved custom command selection
  *	1.7.12	19 Feb 2016		Added Private Boolean enable/disable, capture/restore color hue and saturation
  *	1.7.11	15 Feb 2016		Further UI redesign to better distinguish triggers, added seconds for delayed on/off
@@ -92,7 +93,7 @@ preferences {
 def mainPage() {
 	//version to parent app and expert settings for rule
 	try { 
-		state.isExpert = parent.isExpert("1.7.13a") 
+		state.isExpert = parent.isExpert("1.7.14d") 
 		if (state.isExpert) state.cstCmds = parent.getCommands()
 		else state.cstCmds = []
 	}
@@ -897,18 +898,18 @@ def selectActionsTrue() {
 			if(restoreTrue && captureTrue) setActTrue("Restore: $captureTrue")
 			else if(restoreTrue && captureFalse) setActTrue("Restore: $captureFalse")
 			input "ctTrue", "capability.colorTemperature", title: "Set color temperature for these bulbs", multiple: true, submitOnChange: true, required: false
-			if(ctTrue) input "ctLTrue", "number", title: "> To this color temperature", range: "2000..6500", required: true, submitOnChange: true
+			if(ctTrue) input "ctLTrue", "number", title: "> To this color temperature", range: "2000..6500", required: true, submitOnChange: true, description: "2000..6500"
 			if(ctLTrue) checkActTrue(ctTrue, "Color Temperature: $ctTrue: $ctLTrue")
 			input "bulbsTrue", "capability.colorControl", title: "Set color for these bulbs", multiple: true, required: false, submitOnChange: true
 			if(bulbsTrue) {
 				input "colorTrue", "enum", title: "> Bulb color?", required: true, multiple: false, submitOnChange: true,
 					options: ["Soft White", "White", "Daylight", "Warm White", "Red", "Green", "Blue", "Yellow", "Orange", "Purple", "Pink", "Custom color"]
-				input "colorLevelTrue", "number", title: "> Bulb level?", required: false, submitOnChange: true, range: "0..100"
+				input "colorLevelTrue", "number", title: "> Bulb level?", required: false, submitOnChange: true, range: "0..100", description: "0..100"
 				buildActTrue("Color: $bulbsTrue ", true)
 				if(colorTrue) {
 					if(colorTrue == "Custom color") {
-						input "colorHexTrue", "number", title: "> Input color value", required: true, submitOnChange: true, range: "0..100"
-						input "colorSatTrue", "number", title: "> Input saturation value", required: true, submitOnChange: true, range: "0..100"
+						input "colorHexTrue", "number", title: "> Color value?", required: false, submitOnChange: true, range: "0..100", description: "0..100"
+						input "colorSatTrue", "number", title: "> Saturation value?", required: false, submitOnChange: true, range: "0..100", description: "0..100"
 					}
 					buildActTrue("$colorTrue ", false)
 					if(colorHexTrue) buildActTrue("$colorHexTrue:$colorSatTrue ", false)
@@ -933,12 +934,16 @@ def selectActionsTrue() {
 			if(thermoTrue) {
 				input "thermoModeTrue", "enum", title: "> Select thermostat mode", multiple: false, required: false, options: ["auto", "heat", "cool", "off"], submitOnChange: true
 				input "thermoSetHeatTrue", "decimal", title: "> Set heating point", multiple: false, required: false, submitOnChange: true
+				input "thermoAdjHeatTrue", "decimal", title: "> Adjust heating point", multiple: false, required: false, submitOnChange: true, range: "*..*"
 				input "thermoSetCoolTrue", "decimal", title: "> Set cooling point", multiple: false, required: false, submitOnChange: true 
+				input "thermoAdjCoolTrue", "decimal", title: "> Adjust cooling point", multiple: false, required: false, submitOnChange: true, range: "*..*"
 				input "thermoFanTrue", "enum", title: "> Fan setting", multiple: false, required: false, submitOnChange: true, options: ["on", "auto"]
 				buildActTrue("$thermoTrue: ", true)
 				if(thermoModeTrue) buildActTrue("Mode: " + thermoModeTrue + " ", false)
 				if(thermoSetHeatTrue) buildActTrue("Heat to $thermoSetHeatTrue ", false)
+				if(thermoAdjHeatTrue) buildActTrue("Adjust Heat by $thermoAdjHeatTrue ", false)
 				if(thermoSetCoolTrue) buildActTrue("Cool to $thermoSetCoolTrue ", false)
+				if(thermoAdjCoolTrue) buildActTrue("Adjust Cool by $thermoAdjCoolTrue ", false)
 				if(thermoFanTrue) buildActTrue("Fan setting $thermoFanTrue", false)
 				addToActTrue("")
 			}
@@ -992,13 +997,13 @@ def selectActionsTrue() {
 					addToActTrue(randomStr)
 //				}
             }
-			input "privateTrue", "enum", title: "Set Private Boolean", required: false, submitOnChange: true, options: ["true", "false"]
+			input "privateTrue", "enum", title: "Set private Boolean", required: false, submitOnChange: true, options: ["true", "false"]
 			if(privateTrue) {
 				input "otherTrue", "bool", title: "> For this Rule (default) or others?", required: false, submitOnChange: true
-				if(otherTrue) {
-					input "otherPrivateTrue", "enum", title: "> Select Rules to set Boolean", required: true, multiple: true, options: theseRules.sort(), submitOnChange: true
-					if(otherPrivateTrue) setActTrue("Rule Boolean: $otherPrivateTrue: $privateTrue")
-				} else addToActTrue("Private Boolean: $privateTrue")
+				if(otherTrue) input "otherPrivateTrue", "enum", title: "> Select Rules to set Boolean", required: false, multiple: true, options: theseRules.sort(), submitOnChange: true
+                input "privateDelayTrue", "number", title: "> Set after a delay?", required: false, submitOnChange: true, description: "0 minutes"
+                if(otherPrivateTrue) setActTrue("Rule Boolean: $otherPrivateTrue: $privateTrue" + (privateDelayTrue ? ": Delay $privateDelayTrue minutes" : ""))
+                else addToActTrue("Private Boolean: $privateTrue" + (privateDelayTrue ? ": Delay $privateDelayTrue minutes" : ""))
 			}
 			if (state.isExpert){
 				if (state.cstCmds){
@@ -1093,18 +1098,18 @@ def selectActionsFalse() {
 			if(restoreFalse && captureFalse) setActFalse("Restore: $captureFalse")
 			else if(restoreFalse && captureTrue) setActFalse("Restore: $captureTrue")
 			input "ctFalse", "capability.colorTemperature", title: "Set color temperature for these bulbs", multiple: true, submitOnChange: true, required: false
-			if(ctFalse) input "ctLFalse", "number", title: "> To this color temperature", range: "2000..6500", required: true, submitOnChange: true
+			if(ctFalse) input "ctLFalse", "number", title: "> To this color temperature", range: "2000..6500", required: true, submitOnChange: true, description: "2000..6500"
 			if(ctLFalse) checkActFalse(ctFalse, "Color Temperature: $ctFalse: $ctLFalse")			
 			input "bulbsFalse", "capability.colorControl", title: "Set color for these bulbs", multiple: true, required: false, submitOnChange: true
 			if(bulbsFalse) {
 				input "colorFalse", "enum", title: "> Bulb color?", required: true, multiple: false, submitOnChange: true,
 					options: ["Soft White", "White", "Daylight", "Warm White", "Red", "Green", "Blue", "Yellow", "Orange", "Purple", "Pink", "Custom color"]
-				input "colorLevelFalse", "number", title: "> Bulb level?", required: false, submitOnChange: true, range: "0..100"
+				input "colorLevelFalse", "number", title: "> Bulb level?", required: false, submitOnChange: true, range: "0..100", description: "0..100"
 				buildActFalse("Color: $bulbsFalse ", true)
 				if(colorFalse) {
 					if(colorFalse == "Custom color") {
-						input "colorHexFalse", "number", title: "> Input color value", required: true, submitOnChange: true, range: "0..100"
-						input "colorSatFalse", "number", title: "> Input saturation value", required: true, submitOnChange: true, range: "0..100"
+						input "colorHexFalse", "number", title: "> Color value?", required: false, submitOnChange: true, range: "0..100", description: "0..100"
+						input "colorSatFalse", "number", title: "> Saturation value?", required: false, submitOnChange: true, range: "0..100", description: "0..100"
 					}
 					buildActFalse("$colorFalse ", false)
 					if(colorHexFalse) buildActFalse("$colorHexFalse:$colorSatFalse ", false)
@@ -1129,12 +1134,16 @@ def selectActionsFalse() {
 			if(thermoFalse) {
 				input "thermoModeFalse", "enum", title: "> Select thermostat mode", multiple: false, required: false, options: ["auto", "heat", "cool", "off"], submitOnChange: true
 				input "thermoSetHeatFalse", "decimal", title: "> Set heating point", multiple: false, required: false, submitOnChange: true
+				input "thermoAdjHeatFalse", "decimal", title: "> Adjust heating point", multiple: false, required: false, submitOnChange: true, range: "*..*"
 				input "thermoSetCoolFalse", "decimal", title: "> Set cooling point", multiple: false, required: false, submitOnChange: true 
+				input "thermoAdjCoolFalse", "decimal", title: "> Adjust cooling point", multiple: false, required: false, submitOnChange: true, range: "*..*"
 				input "thermoFanFalse", "enum", title: "> Fan setting", multiple: false, required: false, submitOnChange: true, options: ["on", "auto"]
 				buildActFalse("$thermoFalse: ", true)
 				if(thermoModeFalse) buildActFalse("Mode: " + thermoModeFalse + " ", false)
 				if(thermoSetHeatFalse) buildActFalse("Heat to $thermoSetHeatFalse ", false)
+				if(thermoAdjHeatFalse) buildActFalse("Adjust Heat by $thermoAdjHeatFalse ", false)
 				if(thermoSetCoolFalse) buildActFalse("Cool to $thermoSetCoolFalse ", false)
+				if(thermoAdjCoolFalse) buildActFalse("Adjust Cool by $thermoAdjCoolFalse ", false)
 				if(thermoFanFalse) buildActFalse("Fan setting $thermoFanFalse", false)
 				addToActFalse("")
 			}
@@ -1186,13 +1195,13 @@ def selectActionsFalse() {
 					addToActFalse(randomStr)
 //				}
 			}
-			input "privateFalse", "enum", title: "Set Private Boolean", required: false, submitOnChange: true, options: ["true", "false"]
+			input "privateFalse", "enum", title: "Set private Boolean", required: false, submitOnChange: true, options: ["true", "false"]
 			if(privateFalse) {
 				input "otherFalse", "bool", title: "> For this Rule (default) or others?", required: false, submitOnChange: true
-				if(otherFalse) {
-					input "otherPrivateFalse", "enum", title: "> Select Rules to set Boolean", required: true, multiple: true, options: theseRules.sort(), submitOnChange: true
-					if(otherPrivateFalse) setActFalse("Rule Boolean: $otherPrivateFalse: $privateFalse")
-				} else addToActFalse("Private Boolean: $privateFalse")
+				if(otherFalse) input "otherPrivateFalse", "enum", title: "> Select Rules to set Boolean", required: false, multiple: true, options: theseRules.sort(), submitOnChange: true
+                input "privateDelayFalse", "number", title: "> Set after a delay?", required: false, submitOnChange: true, description: "0 minutes"
+                if(otherPrivateFalse) setActFalse("Rule Boolean: $otherPrivateFalse: $privateFalse" + (privateDelayFalse ? ": Delay $privateDelayFalse minutes" : ""))
+                else addToActFalse("Private Boolean: $privateFalse" + (privateDelayFalse ? ": Delay $privateDelayFalse minutes" : ""))
 			}
 			if (state.isExpert){
 				if (state.cstCmds){
@@ -1750,10 +1759,12 @@ def takeAction(success) {
 		if(fanAdjustTrue)		adjustFan(fanAdjustTrue)
 		if(openValveTrue)		if(delayMilTrue) openValveTrue.open([delay: delayMilTrue]) else openValveTrue.open()
 		if(closeValveTrue)		if(delayMilTrue) closeValveTrue.close([delay: delayMilTrue]) else closeValveTrue.close()
-		if(thermoTrue)		{	if(thermoModeTrue) 	thermoTrue.setThermostatMode(thermoModeTrue)
+		if(thermoTrue)		{	if(thermoModeTrue) 		thermoTrue.setThermostatMode(thermoModeTrue)
 								if(thermoSetHeatTrue)	thermoTrue.setHeatingSetpoint(thermoSetHeatTrue)
-								if(thermoSetCoolTrue)	thermoTrue.setCoolingSetpoint(thermoSetCoolTrue) 	
-								if(thermoFanTrue) 	thermoTrue.setThermostatFanMode(thermoFanTrue)   }
+                                if(thermoAdjHeatTrue)	thermoTrue.each{it.setHeatingSetpoint(it.currentHeatingSetpoint + thermoAdjHeatTrue)}
+								if(thermoSetCoolTrue)	thermoTrue.setCoolingSetpoint(thermoSetCoolTrue)
+                                if(thermoAdjCoolTrue)	thermoTrue.each{it.setCoolingSetpoint(it.currentCoolingSetpoint + thermoAdjCoolTrue)}
+								if(thermoFanTrue) 		thermoTrue.setThermostatFanMode(thermoFanTrue)   }
 		if(alarmTrue)			sendLocationEvent(name: "alarmSystemStatus", value: "$alarmTrue")
 		if(modeTrue) 			setLocationMode(modeTrue)
 		if(ruleTrue)			parent.runRule(ruleTrue, app.label)
@@ -1768,7 +1779,8 @@ def takeAction(success) {
 		if(phoneTrue)			sendSmsMulti(phoneTrue, (msgTrue ?: "Rule $app.label True") + (refDevTrue ? " $state.lastEvtName" : ""))
 		if(speakTrue)			speakTrueDevice?.speak((msgTrue ?: "Rule $app.label True") + (refDevTrue ? " $state.lastEvtName" : ""))
 		if(mediaTrueDevice)		mediaTrueDevice.playTextAndRestore((msgTrue ?: "Rule $app.label True") + (refDevTrue ? " $state.lastEvtName" : ""), mediaTrueVolume)
-		if(privateTrue)			if(otherTrue && otherPrivateTrue) parent.setRuleBoolean(otherPrivateTrue, privateTrue, app.label)
+		if(privateTrue)			if(privateDelayTrue) runIn(privateDelayTrue * 60, delayPrivyTrue)
+        						else if(otherTrue && otherPrivateTrue) parent.setRuleBoolean(otherPrivateTrue, privateTrue, app.label)
 								else state.private = privateTrue // == "true"
 		if(state.howManyCCtrue > 1)  execCommands(true)
 		if(offSwitchTrue) 		if(delayMilTrue) offSwitchTrue.off([delay: delayMilTrue]) else offSwitchTrue.off()
@@ -1800,8 +1812,10 @@ def takeAction(success) {
 		if(closeValveFalse)		if(delayMilFalse) closeValveFalse.close([delay: delayMilFalse]) else closeValveFalse.close()
 		if(thermoFalse)		{	if(thermoModeFalse) 	thermoFalse.setThermostatMode(thermoModeFalse)
 								if(thermoSetHeatFalse) 	thermoFalse.setHeatingSetpoint(thermoSetHeatFalse)
+                                if(thermoAdjHeatFalse)	thermoFalse.each{it.setHeatingSetpoint(it.currentHeatingSetpoint + thermoAdjHeatFalse)}
 								if(thermoSetCoolFalse) 	thermoFalse.setCoolingSetpoint(thermoSetCoolFalse) 	
-								if(thermoFanFalse)	thermoFalse.setThermostatFanMode(thermoFanFalse)   }
+                                if(thermoAdjCoolFalse)	thermoFalse.each{it.setCoolingSetpoint(it.currentCoolingSetpoint + thermoAdjCoolFalse)}
+								if(thermoFanFalse)		thermoFalse.setThermostatFanMode(thermoFanFalse)   }
 		if(alarmFalse)			sendLocationEvent(name: "alarmSystemStatus", value: "$alarmFalse")
 		if(modeFalse) 			setLocationMode(modeFalse)
 		if(ruleFalse)			parent.runRule(ruleFalse, app.label)
@@ -1816,7 +1830,8 @@ def takeAction(success) {
 		if(phoneFalse)			sendSmsMulti(phoneFalse, (msgFalse ?: "Rule $app.label False") + (refDevFalse ? " $state.lastEvtName" : ""))
 		if(speakFalse)			speakFalseDevice?.speak((msgFalse ?: "Rule $app.label False") + (refDevFalse ? " $state.lastEvtName" : ""))
 		if(mediaFalseDevice)	mediaFalseDevice.playTextAndRestore((msgFalse ?: "Rule $app.label False") + (refDevFalse ? " $state.lastEvtName" : ""), mediaFalseVolume)		
-		if(privateFalse)		if(otherFalse && otherPrivateFalse) parent.setRuleBoolean(otherPrivateFalse, privateFalse, app.label)
+		if(privateFalse)		if(privateDelayFalse) runIn(privateDelayFalse * 60, delayPrivyFalse)
+        						else if(otherFalse && otherPrivateFalse) parent.setRuleBoolean(otherPrivateFalse, privateFalse, app.label)
 								else state.private = privateFalse
 		if(state.howManyCCfalse > 1)  	execCommands(false)
 		if(offSwitchFalse) 		if(delayMilFalse) offSwitchFalse.off([delay: delayMilFalse]) else offSwitchFalse.off()
@@ -1992,6 +2007,30 @@ def delayRuleFalse() {
 
 def delayRuleFalseForce() {
 	if(allOk) takeAction(false)
+}
+
+def delayPrivyTrue() {
+	if(otherTrue && otherPrivateTrue) parent.setRuleBoolean(otherPrivateTrue, privateTrue, app.label)
+	else {
+    	state.private = privateTrue // == "true"
+		if(state.isRule || (state.howMany > 1 && state.howManyT <= 1)) runRule(false)
+        else doTrigger()
+    }
+}
+
+def delayPrivyFalse() {
+	if(otherFalse && otherPrivateFalse) parent.setRuleBoolean(otherPrivateFalse, privateFalse, app.label)
+	else {
+    	state.private = privateFalse
+		if(state.isRule || (state.howMany > 1 && state.howManyT <= 1)) runRule(false)
+    	else for(int i = 1; i < state.howManyT; i++) {
+			def myCap = settings.find {it.key == "tCapab$i"}
+			if(myCap.value == "Private Boolean") if(getOperand(i, false)) {
+        		doTrigger()
+            	return
+        	}
+    	}
+    }
 }
 
 def disabledHandler(evt) {
