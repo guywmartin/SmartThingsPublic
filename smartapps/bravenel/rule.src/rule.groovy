@@ -3,10 +3,11 @@
  *
  *  Copyright 2015, 2016 Bruce Ravenel
  *
- *  Version 1.7.14d   23 Feb 2016
+ *  Version 1.7.15b   24 Feb 2016
  *
  *	Version History
  *
+ *	1.7.15	24 Feb 2016		Minor UI cleanup, bug fixes
  *	1.7.14	23 Feb 2016		Added adjust thermostat setpoints, delay Set Private Boolean
  *	1.7.13	21 Feb 2016		Improved custom command selection
  *	1.7.12	19 Feb 2016		Added Private Boolean enable/disable, capture/restore color hue and saturation
@@ -93,7 +94,7 @@ preferences {
 def mainPage() {
 	//version to parent app and expert settings for rule
 	try { 
-		state.isExpert = parent.isExpert("1.7.14d") 
+		state.isExpert = parent.isExpert("1.7.15b") 
 		if (state.isExpert) state.cstCmds = parent.getCommands()
 		else state.cstCmds = []
 	}
@@ -112,7 +113,7 @@ def mainPage() {
 				href "selectConditions", title: "Select Trigger Events", description: condLabel ? (condLabel) : "Tap to set", required: true, state: condLabel ? "complete" : null, submitOnChange: true
 				href "selectActionsTrue", title: "Select Actions", description: state.actsTrue ? state.actsTrue : "Tap to set", state: state.actsTrue ? "complete" : null
 			}
-			section(title: "More options", hidden: hideOptionsSection(), hideable: true) {
+			section(title: "Restrictions", hidden: hideOptionsSection(), hideable: true) {
 				def timeLabel = timeIntervalLabel()
 				href "certainTime", title: "Only during a certain time", description: timeLabel ?: "Tap to set", state: timeLabel ? "complete" : null
 				input "days", "enum", title: "Only on certain days of the week", multiple: true, required: false,
@@ -129,7 +130,7 @@ def mainPage() {
 				href "selectActionsTrue", title: "Select Actions for True", description: state.actsTrue ? state.actsTrue : "Tap to set", state: state.actsTrue ? "complete" : null, submitOnChange: true
 				href "selectActionsFalse", title: "Select Actions for False", description: state.actsFalse ? state.actsFalse : "Tap to set", state: state.actsFalse ? "complete" : null, submitOnChange: true
 			}
-			section(title: "More options", hidden: hideOptionsSection(), hideable: true) {
+			section(title: "Restrictions", hidden: hideOptionsSection(), hideable: true) {
 				input "modesZ", "mode", title: "Evaluate only when mode is", multiple: true, required: false
 				input "disabled", "capability.switch", title: "Switch to disable rule when ON", required: false, multiple: false
 			}   
@@ -218,7 +219,7 @@ def getActions() {
 }
 
 def getMoreOptions() {
-	section(title: "More options", hidden: hideOptionsSection(), hideable: true) {
+	section(title: "Restrictions", hidden: hideOptionsSection(), hideable: true) {
 		def timeLabel = timeIntervalLabel()
 		href "certainTime", title: "Only during a certain time", description: timeLabel ?: "Tap to set", state: timeLabel ? "complete" : null
 		input "daysY", "enum", title: "Only on certain days of the week", multiple: true, required: false,
@@ -226,7 +227,7 @@ def getMoreOptions() {
 		input "modesY", "mode", title: "Only when mode is", multiple: true, required: false            
 		input "disabled", "capability.switch", title: "Switch to disable Rule", required: false, multiple: false, submitOnChange: true
         if(disabled) input "disabledOff", "bool", title: "Disable when Off? On is default", required: false, defaultValue: false
-        input "usePrivateDisable", "bool", title: "Enable/Disable with Private Boolean?", required: false
+        input "usePrivateDisable", "bool", title: "Enable/Disable with private Boolean?", required: false
 	}    
 }
 
@@ -954,6 +955,13 @@ def selectActionsTrue() {
 			def phrases = location.helloHome?.getPhrases()*.label
 			input "myPhraseTrue", "enum", title: "Run a Routine", required: false, options: phrases.sort(), submitOnChange: true
 			if(myPhraseTrue) addToActTrue("Routine: $myPhraseTrue")
+			href "selectMsgTrue", title: "Send or speak a message", description: state.msgTrue ? state.msgTrue : "Tap to set", state: state.msgTrue ? "complete" : null
+			if(state.msgTrue) addToActTrue(state.msgTrue)
+			input "cameraTrue", "capability.imageCapture", title: "Take photos", required: false, multiple: false, submitOnChange: true
+			if(cameraTrue) {
+				input "burstCountTrue", "number", title: "> How many? (default 5)", defaultValue:5
+				addToActTrue("Photo: $cameraTrue " + (burstCountTrue ?: ""))
+			}
 			def theseRules = parent.ruleList(app.label)
 			if(theseRules != null) input "ruleTrue", "enum", title: "Evaluate Rules", required: false, multiple: true, options: theseRules.sort(), submitOnChange: true
 			if(ruleTrue) setActTrue("Rules: $ruleTrue")
@@ -971,13 +979,6 @@ def selectActionsTrue() {
 					if(delayEvalMinutesTrue > 1) delayStrTrue = delayStrTrue + "s"
 					setActTrue(delayStrTrue)
 				}
-			}
-			href "selectMsgTrue", title: "Send or speak a message", description: state.msgTrue ? state.msgTrue : "Tap to set", state: state.msgTrue ? "complete" : null
-			if(state.msgTrue) addToActTrue(state.msgTrue)
-			input "cameraTrue", "capability.imageCapture", title: "Take photos", required: false, multiple: false, submitOnChange: true
-			if(cameraTrue) {
-				input "burstCountTrue", "number", title: "> How many? (default 5)", defaultValue:5
-				addToActTrue("Photo: $cameraTrue " + (burstCountTrue ?: ""))
 			}
 // code below is vestigal, supports prior version of delayTrue and randomTrue            
 //            if(!randomTrue) {
@@ -1154,6 +1155,13 @@ def selectActionsFalse() {
 			def phrases = location.helloHome?.getPhrases()*.label
 			input "myPhraseFalse", "enum", title: "Run a Routine", required: false, options: phrases.sort(), submitOnChange: true
 			if(myPhraseFalse) addToActFalse("Routine: $myPhraseFalse")
+			href "selectMsgFalse", title: "Send or speak a message", description: state.msgFalse ? state.msgFalse : "Tap to set", state: state.msgFalse ? "complete" : null
+			if(state.msgFalse) addToActFalse(state.msgFalse)
+			input "cameraFalse", "capability.imageCapture", title: "Take photos", required: false, multiple: false, submitOnChange: true
+			if(cameraFalse) {
+				input "burstCountFalse", "number", title: "> How many? (default 5)", defaultValue:5
+				addToActFalse("Photo: $cameraFalse " + (burstCountFalse ?: ""))
+			}
 			def theseRules = parent.ruleList(app.label)
 			if(theseRules != null) input "ruleFalse", "enum", title: "Evaluate Rules", required: false, multiple: true, options: theseRules.sort(), submitOnChange: true
 			if(ruleFalse) setActFalse("Rules: $ruleFalse")
@@ -1171,13 +1179,6 @@ def selectActionsFalse() {
 					if(delayEvalMinutesFalse > 1) delayStrFalse = delayStrFalse + "s"
 					setActFalse(delayStrFalse)
 				}
-			}
-			href "selectMsgFalse", title: "Send or speak a message", description: state.msgFalse ? state.msgFalse : "Tap to set", state: state.msgFalse ? "complete" : null
-			if(state.msgFalse) addToActFalse(state.msgFalse)
-			input "cameraFalse", "capability.imageCapture", title: "Take photos", required: false, multiple: false, submitOnChange: true
-			if(cameraFalse) {
-				input "burstCountFalse", "number", title: "> How many? (default 5)", defaultValue:5
-				addToActFalse("Photo: $cameraFalse " + (burstCountFalse ?: ""))
 			}
 // code below is vestigal, supports prior version of delayFalse and randomFalse            
 			if(delayFalse) {
@@ -1410,12 +1411,13 @@ def initialize() {
 				subscribe(myDev.value, (capab.toLowerCase() + ((state.isTrig || hasTrig) ? ".$myState" : "")), allHandler)
 		}
 	}
-	state.success = null
 	subscribe(disabled, "switch", disabledHandler)
 	def disOnOff = disabledOff ? "off" : "on"
 	if(disabled) state.disabled = disabled.currentSwitch == disOnOff
 	else state.disabled = false
-	parent.setRuleTruth(app.label, true)
+//	parent.setRuleTruth(app.label, true)
+	if(hasTrig && state.howMany > 1) state.success = true
+    else state.success = null
 	if(state.isTrig || hasTrig) return
 	if(state.isRule || state.howMany > 1) runRule(true)
 }
@@ -1860,7 +1862,6 @@ def runRule(force) {
 		parent.setRuleTruth(app.label, success)
 		state.success = success
 		log.info (success ? "$app.label is now True" : "$app.label is now False")
-//      sendNotificationEvent(success ? "$app.label is True" : "$app.label is False")
 	} // else log.info "$app.label evaluated " + (success ? "true" : "false")
 }
 
@@ -1872,7 +1873,6 @@ def doTrigger() {
 	else if(randomTrue > 0) 	doDelayTrue(randomTrue * 60, true, true)
 	else takeAction(true)
 	log.info ("$app.label Triggered")
-//  sendNotificationEvent("$app.label Ran")
 }
 
 def getButton(dev, evt, i) {
@@ -2051,6 +2051,10 @@ def ruleEvaluator(rule) {
 def ruleActions(rule) {
 	log.info "$app.label: $rule evaluate"
     if(allOk) takeAction(true)
+}
+
+def revealSuccess() {
+	def result = state.success
 }
 
 def setBoolean(truth, appLabel) {
