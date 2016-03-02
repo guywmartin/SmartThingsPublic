@@ -3,10 +3,11 @@
  *
  *  Copyright 2015, 2016 Bruce Ravenel and Mike Maxwell
  *
- *  Version 1.7.6a   24 Feb 2016
+ *  Version 1.8.0   2 Mar 2016
  *
  *	Version History
  *
+ *	1.8.0	2 Mar 2016		Clean up, added Door control
  *	1.7.6	24 Feb 2016		Added User Guide link, fixed Rule truth mechanism
  *	1.7.5	21 Feb 2016		Improved custom command selection
  *	1.7.4	20 Feb 2016		Added saved command display, UI improvements
@@ -73,7 +74,7 @@ def mainPage() {
         section ("Remove Rule Machine"){
         	href "removePage", description: "Tap to remove Rule Machine and Rules", title: ""
         }
-        if(state.ver) section ("Version 1.7.6a/" + state.ver) { }
+        if(state.ver) section ("Version 1.8.0/" + state.ver) { }
     }
 }
 
@@ -270,7 +271,7 @@ def customCommandsPAGE() {
 }
 
 def getCapab() {  
-	def myOptions = ["Acceleration", "Actuator", "Button", "Carbon monoxide detector", "Contact", "Dimmer", "Energy meter", "Garage door", "Humidity", "Illuminance", 
+	def myOptions = ["Acceleration", "Actuator", "Button", "Carbon monoxide detector", "Contact", "Dimmer", "Door", "Energy meter", "Garage door", "Humidity", "Illuminance", 
     	"Lock", "Motion", "Power meter", "Presence", "Smoke detector", "Switch", "Temperature", "Thermostat", "Water sensor", "Music player"]
 	def result = input "myCapab", "enum", title: "Select capability for test device", required: false, options: myOptions.sort(), submitOnChange: true
 }
@@ -311,6 +312,10 @@ def getDevs() {
 		case "Garage door":
 			thisName = "garage door"
 			thisCapab = "garageDoorControl"
+			break
+		case "Door":
+			thisName = "door"
+			thisCapab = "doorControl"
 			break
 		case "Lock":
 			thisName = "lock"
@@ -623,26 +628,27 @@ def commandExists(cmd){
 	return result
 }
 def addCommand(){
-	def capabs = [	"Acceleration" : "accelerationSensor", 
-    				"Button" : "button",
-    				"Carbon monoxide detector" : "carbonMonoxideDetector", 
-                    "Contact" : "contactSensor", 
-                    "Dimmer" : "switchLevel",
-                    "Energy meter" : "energyMeter", 
-                    "Garage door" : "garageDoorControl", 
-                    "Humidity" : "humiditySensor", 
-                    "Illuminance" : "illuminanceSensor", 
-    				"Lock" : "lock", 
-                    "Motion" : "motionSensor", 
-                    "Power meter" : "powerMeter", 
-                    "Presence" : "presenceSensor", 
-                    "Smoke detector" : "smokeDetector", 
-                    "Switch" : "switch", 
-                    "Temperature" : "temperatureMeasurement", 
-                    "Thermostat" : "thermostat",
-        			"Water sensor" : "waterSensor", 
-                    "Music player" : "musicPlayer", 
-                    "Actuator" : "actuator"]
+	def capabs = [	"Acceleration" : 				"accelerationSensor", 
+    				"Button" : 						"button",
+    				"Carbon monoxide detector" :	"carbonMonoxideDetector", 
+                    "Contact" : 					"contactSensor", 
+                    "Dimmer" : 						"switchLevel",
+                    "Door" : 						"doorControl", 
+                    "Energy meter" : 				"energyMeter", 
+                    "Garage door" : 				"garageDoorControl", 
+                    "Humidity" : 					"humiditySensor", 
+                    "Illuminance" : 				"illuminanceSensor", 
+    				"Lock" : 						"lock", 
+                    "Motion" : 						"motionSensor", 
+                    "Power meter" : 				"powerMeter", 
+                    "Presence" : 					"presenceSensor", 
+                    "Smoke detector" : 				"smokeDetector", 
+                    "Switch" : 						"switch", 
+                    "Temperature" : 				"temperatureMeasurement", 
+                    "Thermostat" : 					"thermostat",
+        			"Water sensor" : 				"waterSensor", 
+                    "Music player" : 				"musicPlayer", 
+                    "Actuator" : 					"actuator"]
 	def result
 	def newCmd = getCmdLabel()
 	def found = commandExists(newCmd)
