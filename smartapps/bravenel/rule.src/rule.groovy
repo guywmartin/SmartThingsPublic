@@ -3,10 +3,11 @@
  *
  *  Copyright 2015, 2016 Bruce Ravenel
  *
- *  Version 1.8.2d   3 Mar 2016
+ *  Version 1.8.3   3 Mar 2016
  *
  *	Version History
  *
+ *	1.8.3	3 Mar 2016		Changed method of reporting version number to Rule Machine
  *	1.8.2	2 Mar 2016		Reorganized UI for selecting Actions, group pages, for speed of mobile app
  *	1.8.1	2 Mar 2016		Added NOT for rules: NOT Condition and NOT (sub-rule) 
  *	1.8.0	2 Mar 2016		Major code cleanup; added random color, decimal for energy & power, and door control
@@ -105,10 +106,15 @@ preferences {
 //
 //	
 //
+
+def appVersion() {
+	return "1.8.3"
+}
+
 def mainPage() {
-	//version to parent app and expert settings for rule
+	//expert settings for rule
 	try { 
-		state.isExpert = parent.isExpert("1.8.2d") 
+		state.isExpert = parent.isExpert() 
 		if (state.isExpert) state.cstCmds = parent.getCommands()
 		else state.cstCmds = []
 	}
