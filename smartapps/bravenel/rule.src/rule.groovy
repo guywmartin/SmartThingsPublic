@@ -3,7 +3,7 @@
  *
  *  Copyright 2015, 2016 Bruce Ravenel
  *
- *  Version 1.8.6   19 Mar 2016
+ *  Version 1.8.6a   21 Mar 2016
  *
  *	Version History
  *
@@ -53,21 +53,20 @@
  *	1.5.6	18 Dec 2015		Fixed bug re: old triggers not editable
  *	1.5.5	17 Dec 2015		Added milliseconds to Delayed off, uses dev.off([delay: msec]) instead of runIn()
  *
- *  Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
- *  in compliance with the License. You may obtain a copy of the License at:
+ *  This software if free for Private Use. You may use and modify the software without distributing it.
+ *  
+ *  This software and derivatives may not be used for commercial purposes.
+ *  You may not modify, distribute or sublicense this software.
+ *  You may not grant a sublicense to modify and distribute this software to third parties not included in the license.
  *
- *      http://www.apache.org/licenses/LICENSE-2.0  
- *
- *  Unless required by applicable law or agreed to in writing, software distributed under the License is distributed
- *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
- *  for the specific language governing permissions and limitations under the License.
+ *  Software is provided without warranty and the software author/license owner cannot be held liable for damages.
  *
  */
 
 definition(
 	name: "Rule",
 	namespace: "bravenel",
-	author: "Bruce Ravenel and Mike Maxwell",
+	author: "Bruce Ravenel",
 	description: "Rule",
 	category: "Convenience",
 	parent: "bravenel:Rule Machine",
@@ -111,7 +110,7 @@ preferences {
 //
 
 def appVersion() {
-	return "1.8.6" 
+	return "1.8.6a" 
 }
 
 def mainPage() {
@@ -2486,11 +2485,11 @@ def selectCustomActions(){
 					}
 				}
 			}
-			if (truth) {
-				if (state.cmdActTrue) state.cmdActTrue = state.cmdActTrue[0..-2]
-			} else {
-				if (state.cmdActFalse) state.cmdActFalse = state.cmdActFalse[0..-2]
-            }
+//			if (truth) {
+//				if (state.cmdActTrue) state.cmdActTrue = state.cmdActTrue[0..-2]
+//			} else {
+//				if (state.cmdActFalse) state.cmdActFalse = state.cmdActFalse[0..-2]
+//            }
 		}   
 	}
 }
