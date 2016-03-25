@@ -3,7 +3,7 @@
  *
  *  Copyright 2015, 2016 Bruce Ravenel
  *
- *  Version 1.9.0   24 Mar 2016
+ *  Version 1.9.0c   24 Mar 2016
  *
  *	Version History
  *
@@ -112,7 +112,7 @@ preferences {
 //
 
 def appVersion() {
-	return "1.9.0" 
+	return "1.9.0c" 
 }
 
 def mainPage() {
@@ -582,7 +582,7 @@ def periodic() {
                 	if(!selectHoursC) input "everyNHoursC", "bool", title: " > Every n hours?", submitOnChange: true, required: false
                 	if(everyNHoursC) {
                 		input "everyNHC", "number", title: " > number of hours", range: "1..23", submitOnChange: true, required: false, defaultValue: 1
-//                    	input "startingHC", "time", title: " > Starting at", submitOnChange: true, required: false, defaultValue: "2016-03-23T12:00:00.000" + gmtOffset()
+                    	input "startingHC", "time", title: " > Starting at", submitOnChange: true, required: false, defaultValue: "2016-03-23T12:00:00.000" + gmtOffset()
                 	}
                 	if(!everyNHoursC) {
                     	input "selectHoursC", "enum", title: " > Each selected hour", submitOnChange: true, required: false, multiple: true,
@@ -638,7 +638,7 @@ def periodicLabel() {
             }
         	break
 		case "Hourly": 
-        	if(everyNHoursC) result = "Every $everyNHC hour" + (everyNHC > 1 ? "s" : "")// + " starting at ${hhmm(startingHC)}"
+        	if(everyNHoursC) result = "Every $everyNHC hour" + (everyNHC > 1 ? "s" : "") + " starting at ${hhmm(startingHC)}"
             if(selectHoursC) {
             	def str = "$selectHoursC"[1..-2]
                 def str2 = ""
@@ -689,7 +689,10 @@ def cronString() {
             }
         	break
 		case "Hourly": 
-			if(everyNHoursC) result = "11 0 */$everyNHC * * ?"
+        	def hrmn = hhmm(startingHC, "HH:mm")
+            def hr = hrmn[0..1] 
+            def mn = hrmn[3..4]
+			if(everyNHoursC) result = "11 $mn $hr/$everyNHC * * ?"
 			if(selectHoursC) {
 				def str = stripBrackSpace("$selectHoursC") as String
 				result = "11 $startingHCX $str 1/1 * ?"
